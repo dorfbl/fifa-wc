@@ -77,6 +77,20 @@
     text-wrap: balance;
   }
 
+  .card-today {
+    border-color: #f97316 !important;
+    animation: card-glow 2s ease-in-out infinite;
+  }
+
+  @keyframes card-glow {
+    0%, 100% {
+      box-shadow: 0 0 6px 1px #f9731660, 0 0 0 1px #f97316;
+    }
+    50% {
+      box-shadow: 0 0 18px 4px #eab30870, 0 0 0 1px #eab308;
+    }
+  }
+
   .btn-orange {
     display: block;
     background-color: #f97316;

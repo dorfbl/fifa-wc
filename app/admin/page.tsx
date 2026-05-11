@@ -450,7 +450,6 @@ function AdminChannels({ onBack }: { onBack: () => void }) {
 
 // ---- MATCHES ----
 function AdminMatches({ onBack }: { onBack: () => void }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [matches, setMatches] = useState<{
     id: number;
     home_name_he: string; away_name_he: string;
@@ -464,6 +463,10 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState('');
+  const [fixtureInput, setFixtureInput] = useState('');
+  const [addingFixture, setAddingFixture] = useState(false);
+  const [addFixtureResult, setAddFixtureResult] = useState('');
+  const [addFixtureError, setAddFixtureError] = useState('');
   const [editing, setEditing] = useState<Record<number, { home_score: string; away_score: string; status: string; channel_id: string; venue_id: string; match_date: string }>>({});
   const [saving, setSaving] = useState<number | null>(null);
   const [recalculating, setRecalculating] = useState<number | null>(null);
@@ -480,6 +483,32 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
   };
 
   useEffect(() => { load(); }, []);
+
+  const handleAddFixture = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fixtureInput.trim()) return;
+    setAddingFixture(true);
+    setAddFixtureResult('');
+    setAddFixtureError('');
+    try {
+      const res = await fetch('/api/admin/add-fixture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixtureId: parseInt(fixtureInput.trim()) }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setAddFixtureError(d.error || 'שגיאה');
+      } else {
+        setAddFixtureResult(d.message);
+        setFixtureInput('');
+        load();
+      }
+    } catch {
+      setAddFixtureError('שגיאת שרת');
+    }
+    setAddingFixture(false);
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -540,13 +569,36 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
       <button onClick={onBack} className="text-c-muted text-sm mb-4">← חזרה</button>
       <h2 className="text-lg font-bold text-c-text mb-4">⚽ משחקים</h2>
 
+      {/* Add fixture */}
+      <form onSubmit={handleAddFixture} className="bg-c-card border border-c-border rounded-2xl p-4 mb-4">
+        <h3 className="font-bold text-c-text mb-3 text-sm">הוסף משחק לפי Fixture ID</h3>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            placeholder="Fixture ID"
+            value={fixtureInput}
+            onChange={e => setFixtureInput(e.target.value)}
+            className="flex-1 bg-c-bg border border-c-border rounded-xl px-3 py-2 text-c-text text-sm"
+          />
+          <button
+            type="submit"
+            disabled={addingFixture || !fixtureInput.trim()}
+            className="bg-[#f97316] text-white font-bold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+          >
+            {addingFixture ? '...' : 'הוסף'}
+          </button>
+        </div>
+        {addFixtureResult && <p className="text-[#22c55e] text-xs mt-2 text-center">{addFixtureResult}</p>}
+        {addFixtureError && <p className="text-[#b91c1c] text-xs mt-2 text-center">{addFixtureError}</p>}
+      </form>
+
       {/* Sync button */}
       <button
         onClick={handleSync}
         disabled={syncing}
         className="w-full bg-c-success-bg border border-[#22c55e] rounded-xl py-3 text-[#22c55e] font-bold mb-2 disabled:opacity-50"
       >
-        {syncing ? 'מסנכרן...' : '🔄 סנכרן ממאגר TheSportsDB'}
+        {syncing ? 'מסנכרן...' : '🔄 סנכרן מ-API'}
       </button>
       {syncResult && <p className="text-sm text-center text-[#22c55e] mb-4">{syncResult}</p>}
 

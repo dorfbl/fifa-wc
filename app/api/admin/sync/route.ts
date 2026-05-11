@@ -2,83 +2,68 @@ import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { requireAdmin } from '@/lib/adminAuth';
 
-const API_KEY = process.env.SPORTSDB_API_KEY || '123';
-const LEAGUE_ID = process.env.SPORTSDB_LEAGUE_ID || '4429';
-const BASE_URL = `https://www.thesportsdb.com/api/v1/json/${API_KEY}`;
+const API_KEY = process.env.APISPORTS_KEY!;
+const BASE = 'https://v3.football.api-sports.io';
 
-// Country name → ISO 3166-1 alpha-2 code mapping
-const COUNTRY_CODES: Record<string, string> = {
-  'Afghanistan': 'AF', 'Albania': 'AL', 'Algeria': 'DZ', 'Angola': 'AO',
-  'Argentina': 'AR', 'Armenia': 'AM', 'Australia': 'AU', 'Austria': 'AT',
-  'Azerbaijan': 'AZ', 'Bahrain': 'BH', 'Bangladesh': 'BD', 'Belgium': 'BE',
-  'Bolivia': 'BO', 'Bosnia-Herzegovina': 'BA', 'Bosnia and Herzegovina': 'BA',
-  'Brazil': 'BR', 'Bulgaria': 'BG', 'Burkina Faso': 'BF', 'Cameroon': 'CM',
-  'Canada': 'CA', 'Cape Verde': 'CV', 'Chile': 'CL', 'China': 'CN',
-  'Colombia': 'CO', 'Congo': 'CG', 'Congo DR': 'CD', 'Costa Rica': 'CR',
-  'Croatia': 'HR', 'Cuba': 'CU', 'Curaçao': 'CW', 'Curacao': 'CW',
-  'Czech Republic': 'CZ', 'Czechia': 'CZ', 'Denmark': 'DK', 'Ecuador': 'EC',
-  'Egypt': 'EG', 'El Salvador': 'SV', 'England': 'GB', 'Ethiopia': 'ET',
-  'France': 'FR', 'Gabon': 'GA', 'Germany': 'DE', 'Ghana': 'GH',
-  'Greece': 'GR', 'Guatemala': 'GT', 'Guinea': 'GN', 'Haiti': 'HT',
-  'Honduras': 'HN', 'Hungary': 'HU', 'India': 'IN', 'Indonesia': 'ID',
-  'Iran': 'IR', 'Iraq': 'IQ', 'Ireland': 'IE', 'Israel': 'IL',
-  'Italy': 'IT', 'Ivory Coast': 'CI', "Côte d'Ivoire": 'CI', 'Jamaica': 'JM',
-  'Japan': 'JP', 'Jordan': 'JO', 'Kenya': 'KE', 'Kuwait': 'KW',
-  'Kyrgyzstan': 'KG', 'Lebanon': 'LB', 'Libya': 'LY', 'Mali': 'ML',
-  'Mexico': 'MX', 'Morocco': 'MA', 'Mozambique': 'MZ', 'Netherlands': 'NL',
-  'New Zealand': 'NZ', 'Nicaragua': 'NI', 'Nigeria': 'NG', 'North Korea': 'KP',
-  'Norway': 'NO', 'Oman': 'OM', 'Pakistan': 'PK', 'Panama': 'PA',
-  'Paraguay': 'PY', 'Peru': 'PE', 'Philippines': 'PH', 'Poland': 'PL',
-  'Portugal': 'PT', 'Qatar': 'QA', 'Romania': 'RO', 'Russia': 'RU',
-  'Saudi Arabia': 'SA', 'Scotland': 'GB', 'Senegal': 'SN', 'Serbia': 'RS',
-  'Slovakia': 'SK', 'Slovenia': 'SI', 'South Africa': 'ZA', 'South Korea': 'KR',
-  'Spain': 'ES', 'Sudan': 'SD', 'Sweden': 'SE', 'Switzerland': 'CH',
-  'Syria': 'SY', 'Tanzania': 'TZ', 'Thailand': 'TH', 'Tunisia': 'TN',
-  'Turkey': 'TR', 'Türkiye': 'TR', 'Uganda': 'UG', 'Ukraine': 'UA',
-  'United Arab Emirates': 'AE', 'UAE': 'AE', 'United States': 'US',
-  'USA': 'US', 'Uruguay': 'UY', 'Venezuela': 'VE', 'Vietnam': 'VN',
-  'Wales': 'GB', 'Zambia': 'ZM', 'Zimbabwe': 'ZW',
-};
+function apiFetch(path: string) {
+  return fetch(`${BASE}${path}`, { headers: { 'x-apisports-key': API_KEY } })
+    .then(r => r.json());
+}
 
-// Hebrew name mapping for known WC 2026 teams
 const HEBREW_NAMES: Record<string, string> = {
   'Mexico': 'מקסיקו', 'South Africa': 'דרום אפריקה', 'South Korea': 'קוריאה הדרומית',
-  'Czech Republic': 'צ\'כיה', 'Czechia': 'צ\'כיה', 'Canada': 'קנדה',
-  'Bosnia-Herzegovina': 'בוסניה והרצגובינה', 'Bosnia and Herzegovina': 'בוסניה והרצגובינה',
+  'Czech Republic': "צ'כיה", 'Czechia': "צ'כיה", 'Canada': 'קנדה',
+  'Bosnia': 'בוסניה', 'Bosnia & Herzegovina': 'בוסניה והרצגובינה',
   'USA': 'ארצות הברית', 'United States': 'ארצות הברית', 'Paraguay': 'פרגוואי',
   'Brazil': 'ברזיל', 'Morocco': 'מרוקו', 'Qatar': 'קטאר',
   'Switzerland': 'שוויץ', 'Haiti': 'האיטי', 'Scotland': 'סקוטלנד',
-  'Germany': 'גרמניה', 'Curaçao': 'קוראסאו', 'Curacao': 'קוראסאו',
-  'Ivory Coast': 'חוף השנהב', "Côte d'Ivoire": 'חוף השנהב',
+  'Germany': 'גרמניה', 'Curacao': 'קוראסאו',
+  'Ivory Coast': 'חוף השנהב', "Cote d'Ivoire": 'חוף השנהב',
   'Ecuador': 'אקוודור', 'Netherlands': 'הולנד', 'Japan': 'יפן',
-  'Australia': 'אוסטרליה', 'Turkey': 'טורקיה', 'Türkiye': 'טורקיה',
+  'Australia': 'אוסטרליה', 'Turkey': 'טורקיה',
   'Belgium': 'בלגיה', 'Egypt': 'מצרים', 'Saudi Arabia': 'ערב הסעודית',
   'Uruguay': 'אורוגוואי', 'Spain': 'ספרד', 'Cape Verde': 'כף ורדה',
   'Sweden': 'שוודיה', 'Tunisia': 'תוניסיה', 'Argentina': 'ארגנטינה',
   'France': 'צרפת', 'England': 'אנגליה', 'Portugal': 'פורטוגל',
   'Italy': 'איטליה', 'Croatia': 'קרואטיה', 'Denmark': 'דנמרק',
-  'Colombia': 'קולומביה', 'Chile': 'צ\'ילה', 'Peru': 'פרו',
+  'Colombia': 'קולומביה', "Chile": "צ'ילה", 'Peru': 'פרו',
   'Senegal': 'סנגל', 'Ghana': 'גאנה', 'Cameroon': 'קמרון',
   'Nigeria': 'ניגריה', 'Poland': 'פולין', 'Serbia': 'סרביה',
   'Ukraine': 'אוקראינה', 'Austria': 'אוסטריה', 'Hungary': 'הונגריה',
   'Iran': 'איראן', 'Indonesia': 'אינדונזיה', 'New Zealand': 'ניו זילנד',
   'Honduras': 'הונדורס', 'Panama': 'פנמה', 'Venezuela': 'ונצואלה',
   'Norway': 'נורבגיה', 'Slovakia': 'סלובקיה', 'Romania': 'רומניה',
-  'Greece': 'יוון', 'Bosnia': 'בוסניה',
+  'Greece': 'יוון', 'Kuwait': 'כווית', 'Iraq': 'עיראק',
 };
 
-function getFlagUrl(countryCode: string): string {
-  return `https://flagsapi.com/${countryCode}/flat/64.png`;
-}
+const COUNTRY_CODES: Record<string, string> = {
+  'Mexico': 'MX', 'South Africa': 'ZA', 'South Korea': 'KR', 'Czech Republic': 'CZ',
+  'Czechia': 'CZ', 'Canada': 'CA', 'Bosnia & Herzegovina': 'BA', 'USA': 'US',
+  'United States': 'US', 'Paraguay': 'PY', 'Brazil': 'BR', 'Morocco': 'MA',
+  'Qatar': 'QA', 'Switzerland': 'CH', 'Haiti': 'HT', 'Scotland': 'GB-SCT',
+  'Germany': 'DE', 'Curacao': 'CW', 'Ivory Coast': 'CI', "Cote d'Ivoire": 'CI',
+  'Ecuador': 'EC', 'Netherlands': 'NL', 'Japan': 'JP', 'Australia': 'AU',
+  'Turkey': 'TR', 'Belgium': 'BE', 'Egypt': 'EG', 'Saudi Arabia': 'SA',
+  'Uruguay': 'UY', 'Spain': 'ES', 'Cape Verde': 'CV', 'Sweden': 'SE',
+  'Tunisia': 'TN', 'Argentina': 'AR', 'France': 'FR', 'England': 'GB-ENG',
+  'Portugal': 'PT', 'Italy': 'IT', 'Croatia': 'HR', 'Denmark': 'DK',
+  'Colombia': 'CO', 'Chile': 'CL', 'Peru': 'PE', 'Senegal': 'SN',
+  'Ghana': 'GH', 'Cameroon': 'CM', 'Nigeria': 'NG', 'Poland': 'PL',
+  'Serbia': 'RS', 'Ukraine': 'UA', 'Austria': 'AT', 'Hungary': 'HU',
+  'Iran': 'IR', 'Indonesia': 'ID', 'New Zealand': 'NZ', 'Honduras': 'HN',
+  'Panama': 'PA', 'Venezuela': 'VE', 'Norway': 'NO', 'Slovakia': 'SK',
+  'Romania': 'RO', 'Greece': 'GR', 'Kuwait': 'KW', 'Iraq': 'IQ',
+};
 
-function getStage(roundStr: string, groupStr: string): string {
-  const r = (roundStr || '').toLowerCase();
-  if (groupStr) return 'group';
+function getStage(round: string): string {
+  const r = round.toLowerCase();
+  if (r.includes('group')) return 'group';
+  if (r.includes('round of 32')) return 'round_of_32';
+  if (r.includes('round of 16')) return 'round_of_16';
   if (r.includes('quarter')) return 'quarter_final';
   if (r.includes('semi')) return 'semi_final';
-  if (r === 'final' || r.includes('world cup final')) return 'final';
-  if (r.includes('round of 16') || r.includes('16')) return 'round_of_16';
-  if (r.includes('round of 32') || r.includes('32')) return 'round_of_32';
+  if (r.includes('3rd') || r.includes('third')) return 'third_place';
+  if (r.includes('final')) return 'final';
   return 'group';
 }
 
@@ -87,147 +72,123 @@ export async function POST() {
   if (denied) return denied;
 
   try {
-    // Step 1: Fetch all events for the season
-    const seasonRes = await fetch(`${BASE_URL}/eventsseason.php?id=${LEAGUE_ID}&s=2026`);
-    const seasonData = await seasonRes.json();
-    const events = seasonData.events || [];
-
-    if (events.length === 0) {
-      return NextResponse.json({ error: 'לא נמצאו משחקים ב-API' }, { status: 404 });
+    // 1. Fetch standings → build teamId→groupLetter map
+    const standingsData = await apiFetch('/standings?league=1&season=2026');
+    const teamGroupMap = new Map<number, string>();
+    const groups: Array<Array<{ team: { id: number }; group: string }>> = standingsData.response?.[0]?.league?.standings || [];
+    for (const group of groups) {
+      if (!group[0]) continue;
+      const letter = group[0].group?.replace('Group ', '') || '';
+      for (const entry of group) {
+        teamGroupMap.set(entry.team.id, letter);
+      }
     }
 
-    let synced = 0;
-    let errors = 0;
+    // 2. Fetch teams → upsert
+    const teamsData = await apiFetch('/teams?league=1&season=2026');
+    const teamRows: Array<{ team: { id: number; name: string; logo: string }; venue: { id: number; name: string; city: string } }> = teamsData.response || [];
 
-    // Step 2: For each event, fetch full details via lookupevent
-    for (const basicEvent of events) {
-      try {
-        const detailRes = await fetch(`${BASE_URL}/lookupevent.php?id=${basicEvent.idEvent}`);
-        const detailData = await detailRes.json();
-        const event = detailData.events?.[0];
-        if (!event) { errors++; continue; }
+    const venueIdMap = new Map<number, number>(); // apisports venueId → db id
 
-        // --- Handle Home Team ---
-        const homeName = event.strHomeTeam;
-        const homeCode = COUNTRY_CODES[homeName] || '';
-        const homeHebrew = HEBREW_NAMES[homeName] || homeName;
-        const homeFlagUrl = homeCode ? getFlagUrl(homeCode) : '';
+    for (const { team, venue } of teamRows) {
+      const nameHe = HEBREW_NAMES[team.name] || team.name;
+      const cc = COUNTRY_CODES[team.name] || '';
+      const flag = cc ? `https://flagsapi.com/${cc}/flat/64.png` : team.logo;
+      const groupLetter = teamGroupMap.get(team.id) || null;
 
-        let homeTeamId: number | null = null;
-        const existingHome = await query(
-          'SELECT id FROM teams WHERE api_id = $1 OR name_en ILIKE $2 LIMIT 1',
-          [event.idHomeTeam, homeName]
-        );
-        if (existingHome.rows.length > 0) {
-          homeTeamId = existingHome.rows[0].id;
-          await query(
-            'UPDATE teams SET api_id = $1, country_code = $2, flag_emoji = $3, name_he = CASE WHEN name_he = \'לא נקבע\' OR name_he = name_en THEN $4 ELSE name_he END WHERE id = $5',
-            [event.idHomeTeam, homeCode, homeFlagUrl, homeHebrew, homeTeamId]
-          );
-        } else {
-          const ins = await query(
-            'INSERT INTO teams (api_id, name_en, name_he, flag_emoji, country_code, group_letter) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-            [event.idHomeTeam, homeName, homeHebrew, homeFlagUrl, homeCode, event.strGroup || null]
-          );
-          homeTeamId = ins.rows[0].id;
-        }
+      // Upsert team by apisports_id or english name
+      await query(`
+        INSERT INTO teams (api_id, name_en, name_he, flag_emoji, group_letter)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (api_id) WHERE api_id IS NOT NULL DO UPDATE SET
+          name_en = $2, name_he = $3, flag_emoji = $4, group_letter = COALESCE($5, teams.group_letter)
+      `, [String(team.id), team.name, nameHe, flag, groupLetter]);
 
-        // --- Handle Away Team ---
-        const awayName = event.strAwayTeam;
-        const awayCode = COUNTRY_CODES[awayName] || '';
-        const awayHebrew = HEBREW_NAMES[awayName] || awayName;
-        const awayFlagUrl = awayCode ? getFlagUrl(awayCode) : '';
-
-        let awayTeamId: number | null = null;
-        const existingAway = await query(
-          'SELECT id FROM teams WHERE api_id = $1 OR name_en ILIKE $2 LIMIT 1',
-          [event.idAwayTeam, awayName]
-        );
-        if (existingAway.rows.length > 0) {
-          awayTeamId = existingAway.rows[0].id;
-          await query(
-            'UPDATE teams SET api_id = $1, country_code = $2, flag_emoji = $3, name_he = CASE WHEN name_he = \'לא נקבע\' OR name_he = name_en THEN $4 ELSE name_he END WHERE id = $5',
-            [event.idAwayTeam, awayCode, awayFlagUrl, awayHebrew, awayTeamId]
-          );
-        } else {
-          const ins = await query(
-            'INSERT INTO teams (api_id, name_en, name_he, flag_emoji, country_code, group_letter) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-            [event.idAwayTeam, awayName, awayHebrew, awayFlagUrl, awayCode, event.strGroup || null]
-          );
-          awayTeamId = ins.rows[0].id;
-        }
-
-        // --- Handle Venue ---
-        let venueId: number | null = null;
-        if (event.strVenue) {
-          const existingVenue = await query(
-            'SELECT id FROM venues WHERE api_id = $1 OR name_he ILIKE $2 LIMIT 1',
-            [event.idVenue, event.strVenue]
-          );
-          if (existingVenue.rows.length > 0) {
-            venueId = existingVenue.rows[0].id;
-            if (event.idVenue) {
-              await query('UPDATE venues SET api_id = $1 WHERE id = $2 AND api_id IS NULL', [event.idVenue, venueId]);
-            }
-          } else {
-            const cityStr = (event.strCity || event.strCountry || '').replace(', MX', '').replace(', CA', '').replace(', US', '').trim();
-            const ins = await query(
-              'INSERT INTO venues (api_id, name_he, city_he, country_he) VALUES ($1, $2, $3, $4) RETURNING id',
-              [event.idVenue || null, event.strVenue, cityStr, event.strCountry || '']
-            );
-            venueId = ins.rows[0].id;
-          }
-        }
-
-        // --- Determine stage ---
-        const stage = getStage(String(event.intRound || ''), event.strGroup || '');
-
-        // --- Parse date ---
-        const matchDate = event.strTimestamp ? new Date(event.strTimestamp + 'Z') : null;
-        if (!matchDate) { errors++; continue; }
-
-        // --- Upsert match ---
-        await query(`
-          INSERT INTO matches (api_id, home_team_id, away_team_id, venue_id, match_date, stage, group_letter, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          ON CONFLICT (api_id) DO UPDATE SET
-            home_team_id = $2,
-            away_team_id = $3,
-            venue_id = COALESCE($4, matches.venue_id),
-            match_date = $5,
-            stage = $6,
-            group_letter = COALESCE($7, matches.group_letter),
-            status = CASE
-              WHEN $8 = 'Not Started' THEN COALESCE(matches.status, 'scheduled')
-              WHEN $8 = 'Match Finished' THEN 'finished'
-              WHEN $8 IN ('1H','2H','HT','ET','PEN') THEN 'live'
-              ELSE matches.status
-            END,
-            updated_at = NOW()
-        `, [
-          event.idEvent,
-          homeTeamId,
-          awayTeamId,
-          venueId,
-          matchDate,
-          stage,
-          event.strGroup || null,
-          event.strStatus || 'Not Started',
-        ]);
-
-        synced++;
-      } catch (err) {
-        console.error(`Error syncing event ${basicEvent.idEvent}:`, err);
-        errors++;
+      // Upsert venue
+      if (venue?.id) {
+        const vRes = await query(`
+          INSERT INTO venues (api_id, name_he, city_he, country_he)
+          VALUES ($1, $2, $3, '')
+          ON CONFLICT (api_id) WHERE api_id IS NOT NULL DO UPDATE SET name_he = $2, city_he = $3
+          RETURNING id
+        `, [String(venue.id), venue.name, venue.city || '']);
+        venueIdMap.set(venue.id, vRes.rows[0].id);
       }
+    }
+
+    // 3. Fetch fixtures → upsert matches
+    const fixturesData = await apiFetch('/fixtures?league=1&season=2026');
+    const fixtures = fixturesData.response || [];
+
+    let synced = 0;
+    for (const f of fixtures) {
+      const homeRes = await query('SELECT id FROM teams WHERE api_id = $1', [String(f.teams.home.id)]);
+      const awayRes = await query('SELECT id FROM teams WHERE api_id = $1', [String(f.teams.away.id)]);
+      if (!homeRes.rows[0] || !awayRes.rows[0]) continue;
+
+      const homeTeamId = homeRes.rows[0].id;
+      const awayTeamId = awayRes.rows[0].id;
+
+      // Get venue — use the fixture's venue id if available
+      let venueId: number | null = null;
+      if (f.fixture.venue?.id) {
+        venueId = venueIdMap.get(f.fixture.venue.id) || null;
+        if (!venueId) {
+          // venue not in map, insert it
+          const vRes = await query(`
+            INSERT INTO venues (api_id, name_he, city_he, country_he)
+            VALUES ($1, $2, $3, '')
+            ON CONFLICT (api_id) WHERE api_id IS NOT NULL DO UPDATE SET name_he = $2, city_he = $3
+            RETURNING id
+          `, [String(f.fixture.venue.id), f.fixture.venue.name || '', f.fixture.venue.city || '']);
+          venueId = vRes.rows[0].id;
+          if (venueId) venueIdMap.set(f.fixture.venue.id, venueId);
+        }
+      }
+
+      const stage = getStage(f.league.round || '');
+      const groupLetter = teamGroupMap.get(f.teams.home.id) || null;
+      const statusShort = f.fixture.status?.short || 'NS';
+      const dbStatus = ['FT','AET','PEN'].includes(statusShort) ? 'finished'
+        : ['1H','HT','2H','ET','P'].includes(statusShort) ? 'live'
+        : 'scheduled';
+
+      await query(`
+        INSERT INTO matches (api_id, apisports_id, home_team_id, away_team_id, venue_id, match_date, stage, group_letter, status, home_score, away_score)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT (api_id) DO UPDATE SET
+          apisports_id = $2,
+          home_team_id = $3,
+          away_team_id = $4,
+          venue_id = COALESCE($5, matches.venue_id),
+          match_date = $6,
+          stage = $7,
+          group_letter = COALESCE($8, matches.group_letter),
+          status = CASE WHEN matches.status = 'finished' THEN 'finished' ELSE $9 END,
+          home_score = COALESCE($10, matches.home_score),
+          away_score = COALESCE($11, matches.away_score),
+          updated_at = NOW()
+      `, [
+        String(f.fixture.id),
+        f.fixture.id,
+        homeTeamId,
+        awayTeamId,
+        venueId,
+        f.fixture.date,
+        stage,
+        groupLetter,
+        dbStatus,
+        f.goals.home,
+        f.goals.away,
+      ]);
+      synced++;
     }
 
     return NextResponse.json({
       success: true,
       synced,
-      errors,
-      total: events.length,
-      message: `סונכרנו ${synced} משחקים בהצלחה${errors > 0 ? `, ${errors} שגיאות` : ''}`,
+      teams: teamRows.length,
+      message: `סונכרנו ${synced} משחקים ו-${teamRows.length} קבוצות`,
     });
   } catch (error) {
     console.error('Sync error:', error);

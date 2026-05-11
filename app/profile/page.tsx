@@ -6,6 +6,7 @@ import TeamFlag from '@/components/TeamFlag';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import TakanonModal from '@/components/TakanonModal';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface ProfileData {
   display_name: string;
@@ -37,6 +38,7 @@ export default function ProfilePage() {
   const [showTakanon, setShowTakanon] = useState(false);
   const { logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, error: pushError, subscribe: pushSubscribe, unsubscribe: pushUnsubscribe } = usePushNotifications();
   const router = useRouter();
 
   useEffect(() => {
@@ -150,6 +152,21 @@ export default function ProfilePage() {
           className="btn-orange mb-4"
         >
           בחר אלופה 🏆
+        </button>
+      )}
+
+      {/* Push notifications */}
+      {pushSupported && (
+        <button
+          onClick={pushSubscribed ? pushUnsubscribe : pushSubscribe}
+          disabled={pushLoading}
+          className={`w-full border rounded-xl py-3 font-bold mt-2 transition-colors ${
+            pushSubscribed
+              ? 'bg-c-card border-[#f97316] text-[#f97316]'
+              : 'bg-c-card border-c-border text-c-muted'
+          }`}
+        >
+          {pushLoading ? 'מתחבר...' : pushError ? `⚠️ ${pushError}` : pushSubscribed ? '🔔 התראות פעילות' : '🔕 הפעל התראות'}
         </button>
       )}
 

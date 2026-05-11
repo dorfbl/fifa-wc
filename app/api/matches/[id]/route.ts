@@ -50,11 +50,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       allPredictions = allPredsResult.rows;
     }
 
+    // Get match events (goals, cards, subs)
+    const eventsResult = await query(`
+      SELECT me.*, t.name_he as team_name_he, t.flag_emoji as team_flag
+      FROM match_events me
+      LEFT JOIN teams t ON me.team_id = t.id
+      WHERE me.match_id = $1
+      ORDER BY me.elapsed ASC, me.id ASC
+    `, [matchId]);
+
     return NextResponse.json({
       match,
       myPrediction: predResult.rows[0] || null,
       allPredictions,
       matchStarted,
+      events: eventsResult.rows,
     });
   } catch (error) {
     console.error('Match detail error:', error);

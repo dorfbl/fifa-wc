@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorkerInit from "@/components/ServiceWorkerInit";
 import ThemeProvider from "@/components/ThemeProvider";
+import PushBanner from "@/components/PushBanner";
 
 export const metadata: Metadata = {
   title: "מונדיאל חברים 2026",
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body className="bg-c-bg text-c-text antialiased">
         <ThemeProvider>
           <ServiceWorkerInit />
+          <PushBanner />
           {children}
         </ThemeProvider>
       </body>

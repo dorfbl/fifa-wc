@@ -20,17 +20,81 @@ interface MatchDetail {
   away_name_he: string;
   home_flag: string;
   away_flag: string;
+  home_team_id: number;
+  away_team_id: number;
   match_date: string;
   status: string;
   stage: string;
   group_letter: string;
   home_score: number | null;
   away_score: number | null;
+  elapsed: number | null;
   venue_name: string;
   venue_city: string;
   venue_country: string;
   channel_name: string;
   channel_logo: string;
+}
+
+interface MatchEvent {
+  id: number;
+  elapsed: number;
+  elapsed_extra: number | null;
+  event_type: string;
+  detail: string;
+  team_id: number;
+  player_name: string;
+  assist_name: string | null;
+  team_name_he: string;
+  team_flag: string;
+}
+
+function EventIcon({ type, detail }: { type: string; detail: string }) {
+  if (type === 'goal') {
+    if (detail.toLowerCase().includes('penalty')) return <span>⚽ פנ׳</span>;
+    if (detail.toLowerCase().includes('own')) return <span>⚽🔴</span>;
+    return <span>⚽</span>;
+  }
+  if (type === 'card') {
+    if (detail.toLowerCase().includes('red') || detail.toLowerCase().includes('second yellow')) return <span>🟥</span>;
+    return <span>🟨</span>;
+  }
+  if (type === 'var') return <span>📺</span>;
+  return <span className="text-c-muted">•</span>;
+}
+
+function EventRow({ ev, homeTeamId }: { ev: MatchEvent; homeTeamId: number }) {
+  const isHome = ev.team_id === homeTeamId;
+  const time = ev.elapsed_extra ? `${ev.elapsed}+${ev.elapsed_extra}'` : `${ev.elapsed}'`;
+  const isSubst = ev.event_type === 'subst';
+
+  return (
+    <div className={`flex items-start gap-1.5 py-1 ${isHome ? 'flex-row' : 'flex-row-reverse'}`}>
+      <span className="text-c-muted w-8 text-center shrink-0" style={{ fontSize: 10 }}>{time}</span>
+      <span className="text-sm shrink-0"><EventIcon type={ev.event_type} detail={ev.detail} /></span>
+      <div className={`flex flex-col flex-1 ${isHome ? 'items-start' : 'items-end'}`}>
+        {isSubst ? (
+          <>
+            {ev.assist_name && (
+              <span className="font-semibold leading-tight" style={{ fontSize: 11, color: '#22c55e' }}>
+                ↑ {ev.assist_name}
+              </span>
+            )}
+            <span className="leading-tight" style={{ fontSize: 11, color: '#ef4444' }}>
+              ↓ {ev.player_name}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-c-text leading-tight" style={{ fontSize: 11 }}>{ev.player_name}</span>
+            {ev.assist_name && ev.event_type === 'goal' && (
+              <span className="text-c-muted leading-tight" style={{ fontSize: 10 }}>בישול: {ev.assist_name}</span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface Prediction {
@@ -66,6 +130,7 @@ export default function MatchDetailPage() {
   const [match, setMatch] = useState<MatchDetail | null>(null);
   const [myPrediction, setMyPrediction] = useState<MyPrediction | null>(null);
   const [allPredictions, setAllPredictions] = useState<Prediction[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
   const [matchStarted, setMatchStarted] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -77,24 +142,36 @@ export default function MatchDetailPage() {
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  useEffect(() => {
+  const loadMatch = (initial = false) => {
     fetch(`/api/matches/${id}`)
       .then(r => r.json())
       .then(data => {
         setMatch(data.match);
         setMyPrediction(data.myPrediction);
         setAllPredictions(data.allPredictions || []);
+        setEvents(data.events || []);
         setMatchStarted(data.matchStarted);
-        if (data.myPrediction) {
+        if (initial && data.myPrediction) {
           setHomeInput(String(data.myPrediction.home_score));
           setAwayInput(String(data.myPrediction.away_score));
           setUseDouble(data.myPrediction.is_double);
         }
-        setLoading(false);
+        if (initial) setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { if (initial) setLoading(false); });
+  };
 
-    // Double availability checked after match loads
+  useEffect(() => {
+    loadMatch(true);
+    // Poll every 20s when live
+    const interval = setInterval(() => {
+      setMatch(prev => {
+        if (prev?.status === 'live') loadMatch(false);
+        return prev;
+      });
+    }, 20000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   useEffect(() => {
@@ -160,6 +237,24 @@ export default function MatchDetailPage() {
 
   const locked = isMatchLocked(match.match_date);
 
+  // Deduplicate goals (keep the one with assist when duplicates exist at same elapsed+player),
+  // then sort newest → oldest
+  const displayEvents = (() => {
+    const seen = new Map<string, MatchEvent>();
+    for (const ev of events) {
+      const key = `${ev.event_type}-${ev.elapsed}-${ev.player_name}`;
+      if (ev.event_type === 'goal') {
+        const existing = seen.get(key);
+        if (!existing || (!existing.assist_name && ev.assist_name)) {
+          seen.set(key, ev);
+        }
+      } else {
+        seen.set(key, ev);
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) => b.elapsed - a.elapsed || (b.elapsed_extra ?? 0) - (a.elapsed_extra ?? 0));
+  })();
+
   return (
     <div className="p-4 max-w-lg mx-auto">
       {/* Back button */}
@@ -198,7 +293,14 @@ export default function MatchDetailPage() {
               <div className="text-c-subtle text-xl font-bold">נגד</div>
             )}
             {match.status === 'live' && (
-              <span className="text-[#22c55e] text-xs font-bold animate-pulse">חי</span>
+              <div className="flex flex-col items-center gap-0.5 mt-1">
+                <span className="bg-[#22c55e] text-black text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                  {match.elapsed ? `${match.elapsed}'` : 'חי'}
+                </span>
+              </div>
+            )}
+            {match.status === 'finished' && (
+              <span className="text-c-muted text-xs">סיים</span>
             )}
           </div>
 
@@ -218,7 +320,7 @@ export default function MatchDetailPage() {
             {(match.channel_name || match.channel_logo) && (
               match.channel_logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={themedLogo(match.channel_logo, theme)} alt={match.channel_name} className="h-6 object-contain opacity-80" />
+                <img src={themedLogo(match.channel_logo, theme)} alt={match.channel_name} className="h-4 object-contain opacity-70" />
               ) : (
                 <span className="text-c-muted text-xs">{match.channel_name}</span>
               )
@@ -226,6 +328,22 @@ export default function MatchDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Live events */}
+      {(match.status === 'live' || match.status === 'finished') && events.length > 0 && (
+        <div className="bg-c-card rounded-2xl border border-c-border p-4 mb-4">
+          <h2 className="font-bold text-c-text mb-3 text-sm">
+            {match.status === 'live' ? '🔴 אירועי המשחק' : '📋 סיכום אירועים'}
+          </h2>
+
+          {/* All events timeline */}
+          <div className="divide-y divide-c-border">
+            {displayEvents.map(ev => (
+              <EventRow key={ev.id} ev={ev} homeTeamId={match.home_team_id} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Prediction form */}
       {!locked && !matchStarted ? (

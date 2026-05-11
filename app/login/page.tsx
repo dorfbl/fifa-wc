@@ -7,7 +7,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
-  const [step, setStep] = useState<'username' | 'pin'>('username');
+  const [step, setStep] = useState<'username' | 'pin' | 'admin'>('username');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -47,6 +47,28 @@ export default function LoginPage() {
     }
   };
 
+  const handleAdminPin = async (pin: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'סיסמה שגויה');
+        setLoading(false);
+        return;
+      }
+      router.replace('/admin');
+    } catch {
+      setError('שגיאת שרת');
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-dvh bg-c-bg flex flex-col items-center justify-center p-6">
       {/* Logo */}
@@ -71,15 +93,16 @@ export default function LoginPage() {
             />
           </div>
           {error && <p className="text-[#b91c1c] text-sm font-bold text-center">{error}</p>}
+          <button type="submit" className="btn-orange" disabled={!username.trim()}>המשך</button>
           <button
-            type="submit"
-            className="btn-orange"
-            disabled={!username.trim()}
+            type="button"
+            onClick={() => { setStep('admin'); setError(''); }}
+            className="text-c-subtle text-xs text-center mt-2"
           >
-            המשך
+            כניסת מנהל
           </button>
         </form>
-      ) : (
+      ) : step === 'pin' ? (
         <div className="w-full max-w-[320px]">
           <button
             onClick={() => { setStep('username'); setError(''); }}
@@ -90,6 +113,21 @@ export default function LoginPage() {
           <PinInput
             title="הזן סיסמה בת 4 ספרות"
             onComplete={handlePinComplete}
+            error={error}
+            loading={loading}
+          />
+        </div>
+      ) : (
+        <div className="w-full max-w-[320px]">
+          <button
+            onClick={() => { setStep('username'); setError(''); }}
+            className="text-c-muted text-sm mb-6 flex items-center gap-1"
+          >
+            ← חזרה
+          </button>
+          <PinInput
+            title="סיסמת מנהל"
+            onComplete={handleAdminPin}
             error={error}
             loading={loading}
           />

@@ -2,20 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { calculatePoints } from '@/lib/scoring';
 
+const API_KEY = process.env.APISPORTS_KEY!;
+const BASE = 'https://v3.football.api-sports.io';
+
+function apiFetch(path: string) {
+  return fetch(`${BASE}${path}`, { headers: { 'x-apisports-key': API_KEY } })
+    .then(r => r.json());
+}
+
+const FINISHED = ['FT', 'AET', 'PEN', 'AWD', 'WO'];
+const LIVE = ['1H', 'HT', '2H', 'ET', 'BT', 'P', 'INT'];
+
 export async function GET(req: NextRequest) {
-  // Verify cron secret
   const secret = req.headers.get('x-cron-secret');
   if (secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    // Find matches that should have started but aren't finished yet
+    // Find matches that should have started
     const matchesResult = await query(`
-      SELECT * FROM matches
-      WHERE status IN ('scheduled', 'live')
-        AND match_date <= NOW()
-      ORDER BY match_date ASC
+      SELECT m.*,
+        ht.api_id as home_api_id, at.api_id as away_api_id
+      FROM matches m
+      JOIN teams ht ON m.home_team_id = ht.id
+      JOIN teams at ON m.away_team_id = at.id
+      WHERE m.status IN ('scheduled', 'live')
+        AND m.match_date <= NOW()
+      ORDER BY m.match_date ASC
     `);
 
     const matches = matchesResult.rows;
@@ -23,116 +37,85 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'No matches to sync', synced: 0 });
     }
 
-    const results: Array<{ matchId: number; apiId: string; status: string; action: string }> = [];
+    const results = [];
 
     for (const match of matches) {
-      // Extract real TheSportsDB event ID (strip 'TEST-' prefix if present)
-      const apiId: string = match.api_id || '';
-      const eventId = apiId.startsWith('TEST-') ? apiId.replace('TEST-', '') : apiId;
+      // Use apisports_id if available, otherwise try api_id (strip TEST- prefix)
+      const fixtureId = match.apisports_id
+        || (match.api_id?.startsWith('TEST-') ? match.api_id.replace('TEST-', '') : match.api_id);
 
-      if (!eventId) {
-        results.push({ matchId: match.id, apiId, status: 'skipped', action: 'no api_id' });
+      if (!fixtureId) {
+        results.push({ matchId: match.id, action: 'no fixture id' });
         continue;
       }
 
       try {
-        const response = await fetch(
-          `https://www.thesportsdb.com/api/v1/json/${process.env.SPORTSDB_API_KEY}/lookupevent.php?id=${eventId}`
-        );
-        const data = await response.json();
-        const event = data?.events?.[0];
-
-        if (!event) {
-          results.push({ matchId: match.id, apiId, status: 'skipped', action: 'no event data' });
+        const data = await apiFetch(`/fixtures?id=${fixtureId}`);
+        const f = data?.response?.[0];
+        if (!f) {
+          results.push({ matchId: match.id, action: 'no data' });
           continue;
         }
 
-        const FINISHED_STATUSES = ['Match Finished', 'FT', 'AET', 'AOT', 'AP', 'After Extra Time', 'After Penalties'];
-        const LIVE_STATUSES = ['1H', 'HT', '2H', 'ET', 'PT', 'Live'];
-        const homeScore = event.intHomeScore !== null && event.intHomeScore !== ''
-          ? parseInt(event.intHomeScore)
-          : null;
-        const awayScore = event.intAwayScore !== null && event.intAwayScore !== ''
-          ? parseInt(event.intAwayScore)
-          : null;
+        const statusShort = f.fixture.status?.short || 'NS';
+        const elapsed = f.fixture.status?.elapsed || null;
+        const homeScore = f.goals?.home ?? null;
+        const awayScore = f.goals?.away ?? null;
 
-        // Time-based fallback: group=120min, playoff=170min after kickoff
+        const isFinished = FINISHED.includes(statusShort);
+        const isLive = LIVE.includes(statusShort);
+
+        // Time-based fallback
         const matchAgeMs = Date.now() - new Date(match.match_date).getTime();
         const thresholdMin = match.stage === 'group' ? 120 : 170;
         const overDue = matchAgeMs > thresholdMin * 60 * 1000;
+        const forceFinish = overDue && homeScore !== null && awayScore !== null;
 
-        const isFinished = FINISHED_STATUSES.includes(event.strStatus)
-          || (overDue && homeScore !== null && awayScore !== null);
-        const isLive = LIVE_STATUSES.includes(event.strStatus);
-
-        if (isFinished && homeScore !== null && awayScore !== null) {
-          // Update match as finished with scores
+        if ((isFinished || forceFinish) && homeScore !== null && awayScore !== null) {
           await query(`
-            UPDATE matches SET
-              home_score = $1,
-              away_score = $2,
-              status = 'finished',
-              updated_at = NOW()
-            WHERE id = $3
+            UPDATE matches SET home_score=$1, away_score=$2, status='finished', elapsed=NULL, updated_at=NOW()
+            WHERE id=$3
           `, [homeScore, awayScore, match.id]);
 
-          // Calculate points for all predictions on this match
-          const predsResult = await query(
-            'SELECT * FROM predictions WHERE match_id = $1',
-            [match.id]
-          );
+          // Sync events before calculating points
+          await syncEvents(match.id, f.events || []);
 
-          for (const pred of predsResult.rows) {
-            const points = calculatePoints(
-              pred.home_score,
-              pred.away_score,
-              homeScore,
-              awayScore,
-              pred.is_double
-            );
-            await query('UPDATE predictions SET points = $1 WHERE id = $2', [points, pred.id]);
+          // Calculate points
+          const preds = await query('SELECT * FROM predictions WHERE match_id=$1', [match.id]);
+          for (const pred of preds.rows) {
+            const pts = calculatePoints(pred.home_score, pred.away_score, homeScore, awayScore, pred.is_double);
+            await query('UPDATE predictions SET points=$1 WHERE id=$2', [pts, pred.id]);
           }
 
-          // Handle tournament winner if final
           if (match.stage === 'final') {
-            const winnerTeamId = homeScore > awayScore
-              ? match.home_team_id
-              : match.away_team_id;
-
-            await query(`
-              UPDATE tournament_winners SET points = CASE WHEN team_id = $1 THEN 8 ELSE 0 END
-            `, [winnerTeamId]);
-
-            await query("UPDATE settings SET value = 'true' WHERE key = 'tournament_ended'");
+            const winnerTeamId = homeScore > awayScore ? match.home_team_id : match.away_team_id;
+            await query(`UPDATE tournament_winners SET points = CASE WHEN team_id=$1 THEN 8 ELSE 0 END`, [winnerTeamId]);
+            await query(`UPDATE settings SET value='true' WHERE key='tournament_ended'`);
           }
+          await query(`UPDATE settings SET value='true' WHERE key='tournament_started'`);
 
-          // Mark tournament as started
-          await query("UPDATE settings SET value = 'true' WHERE key = 'tournament_started'");
+          results.push({ matchId: match.id, action: `finished ${homeScore}-${awayScore}, ${preds.rows.length} predictions scored` });
 
-          results.push({
-            matchId: match.id,
-            apiId,
-            status: 'finished',
-            action: `scored ${homeScore}-${awayScore}, points calculated for ${predsResult.rows.length} predictions`,
-          });
-        } else if ((isLive || (homeScore !== null && awayScore !== null)) && match.status !== 'live') {
-          // Mark as live
-          await query(`
-            UPDATE matches SET
-              home_score = $1,
-              away_score = $2,
-              status = 'live',
-              updated_at = NOW()
-            WHERE id = $3
-          `, [homeScore, awayScore, match.id]);
+        } else if (isLive || forceFinish) {
+          const scoreChanged = homeScore !== match.home_score || awayScore !== match.away_score;
+          if (scoreChanged || match.status !== 'live' || elapsed !== match.elapsed) {
+            await query(`
+              UPDATE matches SET home_score=$1, away_score=$2, status='live', elapsed=$3, updated_at=NOW()
+              WHERE id=$4
+            `, [homeScore, awayScore, elapsed, match.id]);
 
-          results.push({ matchId: match.id, apiId, status: 'live', action: 'marked live' });
+            await syncEvents(match.id, f.events || []);
+            await query(`UPDATE settings SET value='true' WHERE key='tournament_started'`);
+
+            results.push({ matchId: match.id, action: `live ${homeScore}-${awayScore} (${elapsed}')` });
+          } else {
+            results.push({ matchId: match.id, action: 'no change' });
+          }
         } else {
-          results.push({ matchId: match.id, apiId, status: event.strStatus || 'unknown', action: 'no change' });
+          results.push({ matchId: match.id, action: 'no change', status: statusShort });
         }
-      } catch (fetchErr) {
-        console.error(`Error fetching event ${eventId}:`, fetchErr);
-        results.push({ matchId: match.id, apiId, status: 'error', action: String(fetchErr) });
+      } catch (err) {
+        results.push({ matchId: match.id, action: `error: ${err}` });
       }
     }
 
@@ -140,5 +123,44 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('Cron sync error:', error);
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 });
+  }
+}
+
+async function syncEvents(
+  matchId: number,
+  events: Array<{
+    time: { elapsed: number; extra: number | null };
+    type: string;
+    detail: string;
+    team: { id: number };
+    player: { name: string };
+    assist: { name: string | null };
+  }>
+) {
+  for (const ev of events) {
+    if (!ev.type || !ev.player?.name) continue;
+
+    // Find team db id
+    const teamApiId = String(ev.team?.id);
+    const teamRes = await query('SELECT id FROM teams WHERE api_id=$1', [teamApiId]);
+    const teamId = teamRes.rows[0]?.id || null;
+
+    await query(`
+      INSERT INTO match_events (match_id, elapsed, elapsed_extra, event_type, detail, team_id, player_name, assist_name)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      ON CONFLICT (match_id, elapsed, event_type, player_name) DO UPDATE SET
+        detail = $5,
+        elapsed_extra = $3,
+        assist_name = $8
+    `, [
+      matchId,
+      ev.time?.elapsed || 0,
+      ev.time?.extra || null,
+      ev.type.toLowerCase(),
+      ev.detail || '',
+      teamId,
+      ev.player?.name || '',
+      ev.assist?.name || null,
+    ]);
   }
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { formatIsraelDate, formatIsraelTime, isMatchLocked, isWithin60Minutes } from '@/lib/time';
+import { formatIsraelDate, formatIsraelTime, isMatchLocked, isWithin60Minutes, isToday } from '@/lib/time';
 import TeamFlag from '@/components/TeamFlag';
 import { useThemeStore } from '@/stores/themeStore';
 
@@ -68,11 +68,12 @@ function MatchCard({ match }: { match: MatchRow }) {
   const locked = isMatchLocked(match.match_date);
   const urgent = isWithin60Minutes(match.match_date);
   const started = match.status === 'live' || match.status === 'finished';
+  const today = isToday(match.match_date);
   const hasPred = match.pred_home !== null;
 
   return (
     <Link href={`/matches/${match.id}`}>
-      <div className="bg-c-card rounded-2xl border border-c-border p-4 mb-3 active:opacity-80 transition-opacity">
+      <div className={`bg-c-card rounded-2xl border p-4 mb-3 active:opacity-80 transition-opacity ${today && !started ? 'card-today' : 'border-c-border'}`}>
         {/* Top row: date/time + status */}
         <div className="flex justify-between items-center mb-3">
           <div className="text-c-muted text-sm">
@@ -120,7 +121,7 @@ function MatchCard({ match }: { match: MatchRow }) {
             <span>{match.venue_name ? `${match.venue_name}, ` : ''}{match.venue_city}{match.venue_country ? `, ${match.venue_country}` : ''}</span>
             {match.channel_logo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={themedLogo(match.channel_logo, theme)} alt={match.channel_name} className="h-5 object-contain opacity-80" />
+              <img src={themedLogo(match.channel_logo, theme)} alt={match.channel_name} className="h-3.5 object-contain opacity-70" />
             ) : match.channel_name ? (
               <span className="text-c-muted">{match.channel_name}</span>
             ) : null}
