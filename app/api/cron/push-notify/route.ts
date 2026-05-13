@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Find matches starting in 50–70 minutes that are still scheduled
+  // Find matches starting in 50–70 minutes that are still scheduled and not yet notified
   const matchesResult = await query(`
     SELECT m.id, m.match_date,
       ht.name_he as home_name, at.name_he as away_name
@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     JOIN teams ht ON m.home_team_id = ht.id
     JOIN teams at ON m.away_team_id = at.id
     WHERE m.status = 'scheduled'
-      AND m.match_date BETWEEN NOW() + INTERVAL '50 minutes' AND NOW() + INTERVAL '70 minutes'
+      AND m.push_sent_at IS NULL
+      AND m.match_date BETWEEN NOW() + INTERVAL '20 minutes' AND NOW() + INTERVAL '40 minutes'
   `);
 
   if (matchesResult.rows.length === 0) {
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
   let totalSent = 0;
 
   for (const match of matchesResult.rows) {
+    // Mark as notified immediately to prevent duplicate sends
+    await query('UPDATE matches SET push_sent_at = NOW() WHERE id = $1', [match.id]);
+
     // Find subscribed users who have NOT predicted this match
     const subsResult = await query(`
       SELECT ps.user_id, ps.endpoint, ps.p256dh, ps.auth

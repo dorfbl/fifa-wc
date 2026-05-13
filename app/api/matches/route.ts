@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
         m.*,
         ht.id as home_team_id, ht.name_he as home_name_he, ht.flag_emoji as home_flag, ht.name_en as home_name_en,
         at.id as away_team_id, at.name_he as away_name_he, at.flag_emoji as away_flag, at.name_en as away_name_en,
-        v.name_he as venue_name, v.city_he as venue_city, v.country_he as venue_country,
+        COALESCE(m.venue_name_api, v.name_he) as venue_name, COALESCE(m.venue_city_api, v.city_he) as venue_city, v.country_he as venue_country,
         ch.name_he as channel_name, ch.logo_url as channel_logo,
         p.home_score as pred_home, p.away_score as pred_away, p.is_double as pred_double, p.points as pred_points
       FROM matches m

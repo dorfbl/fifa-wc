@@ -87,9 +87,43 @@ export async function GET(req: NextRequest) {
             await query('UPDATE predictions SET points=$1 WHERE id=$2', [pts, pred.id]);
           }
 
+          // Recalculate top scorer goal points (1 pt per goal scored by chosen player)
+          await query(`
+            UPDATE top_scorer_picks tsp
+            SET points = (
+              SELECT COUNT(*) FROM match_events me
+              JOIN players pl ON pl.api_id = me.player_api_id
+              WHERE pl.id = tsp.player_id
+                AND me.event_type = 'goal'
+                AND me.detail NOT ILIKE '%own%'
+            )
+          `);
+
           if (match.stage === 'final') {
             const winnerTeamId = homeScore > awayScore ? match.home_team_id : match.away_team_id;
             await query(`UPDATE tournament_winners SET points = CASE WHEN team_id=$1 THEN 8 ELSE 0 END`, [winnerTeamId]);
+
+            // Award +8 bonus to correct top scorer picks (add to existing goal points)
+            const topScorerResult = await query(`
+              SELECT player_api_id, COUNT(*) as goals
+              FROM match_events
+              WHERE event_type = 'goal'
+                AND detail NOT ILIKE '%own%'
+                AND player_api_id IS NOT NULL
+              GROUP BY player_api_id
+              ORDER BY goals DESC
+              LIMIT 1
+            `);
+            if (topScorerResult.rows[0]) {
+              const topApiId = topScorerResult.rows[0].player_api_id;
+              await query(`
+                UPDATE top_scorer_picks tsp
+                SET points = points + 8
+                FROM players pl
+                WHERE pl.id = tsp.player_id AND pl.api_id = $1
+              `, [topApiId]);
+            }
+
             await query(`UPDATE settings SET value='true' WHERE key='tournament_ended'`);
           }
           await query(`UPDATE settings SET value='true' WHERE key='tournament_started'`);
@@ -133,7 +167,7 @@ async function syncEvents(
     type: string;
     detail: string;
     team: { id: number };
-    player: { name: string };
+    player: { id: number | null; name: string };
     assist: { name: string | null };
   }>
 ) {
@@ -146,12 +180,13 @@ async function syncEvents(
     const teamId = teamRes.rows[0]?.id || null;
 
     await query(`
-      INSERT INTO match_events (match_id, elapsed, elapsed_extra, event_type, detail, team_id, player_name, assist_name)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO match_events (match_id, elapsed, elapsed_extra, event_type, detail, team_id, player_name, assist_name, player_api_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       ON CONFLICT (match_id, elapsed, event_type, player_name) DO UPDATE SET
         detail = $5,
         elapsed_extra = $3,
-        assist_name = $8
+        assist_name = $8,
+        player_api_id = COALESCE($9, match_events.player_api_id)
     `, [
       matchId,
       ev.time?.elapsed || 0,
@@ -161,6 +196,7 @@ async function syncEvents(
       teamId,
       ev.player?.name || '',
       ev.assist?.name || null,
+      ev.player?.id || null,
     ]);
   }
 }

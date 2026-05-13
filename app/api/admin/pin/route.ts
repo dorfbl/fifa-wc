@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { query } from '@/lib/db';
 
 const ADMIN_COOKIE = 'mundial_admin';
+
+export async function GET() {
+  const cookieStore = await cookies();
+  const authed = cookieStore.get(ADMIN_COOKIE)?.value === 'true';
+  return NextResponse.json({ authed });
+}
 
 export async function POST(req: NextRequest) {
   try {

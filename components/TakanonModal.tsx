@@ -77,6 +77,17 @@ export default function TakanonModal({ onClose }: Props) {
           <Rule>הנקודות יתווספו אוטומטית בסיום הגמר</Rule>
         </Section>
 
+        {/* Top Scorer */}
+        <Section title="ניחוש מלך השערים 👟">
+          <ScoreRow label="+1 נקודה לכל שער שהשחקן הנבחר מבקיע" points="+1/שער" color="text-[#f97316]" />
+          <ScoreRow label="ניחוש מלך השערים נכון (מוביל הטורניר)" points="+8" color="text-[#eab308]" />
+          <Rule>יש לבחור שחקן <strong>לפני תחילת המשחק הראשון</strong> של הטורניר</Rule>
+          <Rule>לאחר תחילת הטורניר לא ניתן לשנות את הבחירה</Rule>
+          <Rule>בכל פעם שהשחקן הנבחר מבקיע — <strong>נקודה נוספת</strong> מתווספת אוטומטית לדירוג שלך</Rule>
+          <Rule>אם השחקן שבחרת מסיים את הטורניר כמלך השערים — מקבלים <strong>+8 נקודות בונוס</strong> נוספות</Rule>
+          <Rule>בחירות כל השחקנים <strong>נסתרות</strong> עד לתחילת המשחק הראשון</Rule>
+        </Section>
+
         {/* Prediction Window */}
         <Section title="חלון הגשת תחזיות">
           <Rule>ניתן להגיש או לערוך תחזית עד <strong>5 דקות לפני תחילת המשחק</strong></Rule>
@@ -126,6 +137,8 @@ export default function TakanonModal({ onClose }: Props) {
               ['מנצח נכון', '+1 נק׳'],
               ['הכפלה × 2', '×2 נק׳'],
               ['אלופה נכונה', '+8 נק׳'],
+              ['שער מלך שערים', '+1 נק׳'],
+              ['מלך שערים נכון', '+8 נק׳'],
               ['נעילה', '5 דק׳ לפני'],
               ['הכפלות', '2 סה״כ'],
             ].map(([label, val]) => (

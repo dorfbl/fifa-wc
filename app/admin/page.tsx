@@ -15,10 +15,18 @@ type AdminSection = null | 'users' | 'teams' | 'venues' | 'channels' | 'matches'
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [section, setSection] = useState<AdminSection>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    fetch('/api/admin/pin')
+      .then(r => r.json())
+      .then(d => { if (d.authed) setAuthed(true); })
+      .finally(() => setChecking(false));
+  }, []);
 
   const handlePin = async (pin: string) => {
     setLoading(true);
@@ -41,6 +49,14 @@ export default function AdminPage() {
     }
     setLoading(false);
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-dvh bg-c-bg flex items-center justify-center">
+        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+      </div>
+    );
+  }
 
   if (!authed) {
     return (
@@ -461,8 +477,11 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
   }[]>([]);
   const [channels, setChannels] = useState<{ id: number; name_he: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState('');
+  const [syncingPlayers, setSyncingPlayers] = useState(false);
+  const [syncPlayersResult, setSyncPlayersResult] = useState('');
   const [fixtureInput, setFixtureInput] = useState('');
   const [addingFixture, setAddingFixture] = useState(false);
   const [addFixtureResult, setAddFixtureResult] = useState('');
@@ -520,6 +539,15 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
     load();
   };
 
+  const handleSyncPlayers = async () => {
+    setSyncingPlayers(true);
+    setSyncPlayersResult('');
+    const res = await fetch('/api/admin/sync-players', { method: 'POST' });
+    const d = await res.json();
+    setSyncPlayersResult(d.success ? d.message : `שגיאה: ${d.error}`);
+    setSyncingPlayers(false);
+  };
+
   const getEdit = (m: typeof matches[0]) => editing[m.id] || {
     home_score: m.home_score !== null ? String(m.home_score) : '',
     away_score: m.away_score !== null ? String(m.away_score) : '',
@@ -547,6 +575,18 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
       }),
     });
     setSaving(null);
+    load();
+  };
+
+  const handleDelete = async (id: number, label: string) => {
+    if (!confirm(`למחוק את המשחק ${label}?\nהפעולה תמחק גם את הקבוצות והשחקנים שלא בשימוש.`)) return;
+    setDeleting(id);
+    await fetch('/api/admin/matches', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId: id }),
+    });
+    setDeleting(null);
     load();
   };
 
@@ -592,15 +632,24 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
         {addFixtureError && <p className="text-[#b91c1c] text-xs mt-2 text-center">{addFixtureError}</p>}
       </form>
 
-      {/* Sync button */}
+      {/* Sync buttons */}
       <button
         onClick={handleSync}
         disabled={syncing}
         className="w-full bg-c-success-bg border border-[#22c55e] rounded-xl py-3 text-[#22c55e] font-bold mb-2 disabled:opacity-50"
       >
-        {syncing ? 'מסנכרן...' : '🔄 סנכרן מ-API'}
+        {syncing ? 'מסנכרן...' : '🔄 סנכרן משחקים וקבוצות'}
       </button>
       {syncResult && <p className="text-sm text-center text-[#22c55e] mb-4">{syncResult}</p>}
+
+      <button
+        onClick={handleSyncPlayers}
+        disabled={syncingPlayers}
+        className="w-full bg-c-success-bg border border-[#22c55e] rounded-xl py-3 text-[#22c55e] font-bold mb-2 disabled:opacity-50"
+      >
+        {syncingPlayers ? 'מסנכרן שחקנים...' : '👟 סנכרן שחקנים (סגל)'}
+      </button>
+      {syncPlayersResult && <p className="text-sm text-center text-[#22c55e] mb-4">{syncPlayersResult}</p>}
 
       <div className="flex flex-col gap-3">
         {matches.map(match => {
@@ -673,6 +722,13 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
                   className="flex-1 bg-c-success-bg border border-[#22c55e] text-[#22c55e] text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40"
                 >
                   {recalculating === match.id ? '...' : 'חשב ניקוד'}
+                </button>
+                <button
+                  onClick={() => handleDelete(match.id, `${match.home_name_he} נגד ${match.away_name_he}`)}
+                  disabled={deleting === match.id}
+                  className="bg-[#b91c1c20] border border-[#b91c1c] text-[#b91c1c] text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40"
+                >
+                  {deleting === match.id ? '...' : '🗑️'}
                 </button>
               </div>
             </div>

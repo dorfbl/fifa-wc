@@ -14,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         m.*,
         ht.name_he as home_name_he, ht.flag_emoji as home_flag, ht.name_en as home_name_en,
         at.name_he as away_name_he, at.flag_emoji as away_flag, at.name_en as away_name_en,
-        v.name_he as venue_name, v.city_he as venue_city, v.country_he as venue_country,
+        COALESCE(m.venue_name_api, v.name_he) as venue_name, COALESCE(m.venue_city_api, v.city_he) as venue_city, v.country_he as venue_country,
         ch.name_he as channel_name, ch.logo_url as channel_logo
       FROM matches m
       LEFT JOIN teams ht ON m.home_team_id = ht.id

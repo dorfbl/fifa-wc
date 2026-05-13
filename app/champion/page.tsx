@@ -112,7 +112,7 @@ export default function ChampionPage() {
                 <TeamFlag flagEmoji={team.flag_emoji} size="sm" />
                 <span className="font-bold text-c-text flex-1 text-right">{team.name_he}</span>
                 {team.group_letter && (
-                  <span className="text-c-subtle text-xs">בית {team.group_letter}</span>
+                  <span className="text-c-subtle text-xs">בית {team.group_letter.charCodeAt(0) - 64}</span>
                 )}
                 {selected === team.id && <span className="text-[#f97316]">✓</span>}
               </button>

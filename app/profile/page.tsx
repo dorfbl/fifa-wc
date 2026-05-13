@@ -19,7 +19,24 @@ interface ProfileData {
   group_double_available: boolean;
   knockout_double_available: boolean;
   champion: { name_he: string; flag_emoji: string; points: number } | null;
+  top_scorer: { player_name: string; photo_url: string | null; team_name_he: string; team_flag: string; points: number } | null;
   tournament_started: boolean;
+}
+
+function TopScorerAvatar({ photoUrl, name }: { photoUrl: string | null; name: string }) {
+  const [err, setErr] = useState(false);
+  if (!photoUrl || err) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-c-border flex items-center justify-center text-c-subtle font-bold text-sm shrink-0">
+        {name.charAt(0).toUpperCase()}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={photoUrl} alt={name} width={40} height={40} onError={() => setErr(true)}
+      className="w-10 h-10 rounded-full object-cover bg-c-border shrink-0" />
+  );
 }
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
@@ -80,9 +97,10 @@ export default function ProfilePage() {
         <div className="flex items-center justify-center gap-3 mt-2">
           <span className="text-c-muted text-sm">מקום {data.rank}</span>
           {data.champion && (
-            <span className="text-sm flex items-center gap-1">
-              <TeamFlag flagEmoji={data.champion.flag_emoji} size="sm" /> {data.champion.name_he}
-            </span>
+            <TeamFlag flagEmoji={data.champion.flag_emoji} size="sm" />
+          )}
+          {data.top_scorer && (
+            <TopScorerAvatar photoUrl={data.top_scorer.photo_url} name={data.top_scorer.player_name} />
           )}
         </div>
       </div>
@@ -152,6 +170,38 @@ export default function ProfilePage() {
           className="btn-orange mb-4"
         >
           בחר אלופה 🏆
+        </button>
+      )}
+
+      {/* Top scorer pick */}
+      {data.top_scorer ? (
+        <div className="bg-c-card rounded-2xl border border-c-border p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-bold text-c-text">הבחירה שלי למלך שערים</h2>
+            {!data.tournament_started && (
+              <button
+                onClick={() => router.push('/top-scorer')}
+                className="text-[#f97316] text-sm font-bold"
+              >
+                שנה ✏️
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <TopScorerAvatar photoUrl={data.top_scorer.photo_url} name={data.top_scorer.player_name} />
+            <span className="font-bold text-c-text flex-1">{data.top_scorer.player_name}</span>
+            <TeamFlag flagEmoji={data.top_scorer.team_flag} size="sm" />
+            {data.top_scorer.points > 0 && (
+              <span className="text-[#22c55e] font-bold">+{data.top_scorer.points}</span>
+            )}
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => router.push('/top-scorer')}
+          className="w-full bg-c-card border border-c-border rounded-xl py-3 text-c-text font-bold mb-4"
+        >
+          בחר מלך שערים 👟
         </button>
       )}
 

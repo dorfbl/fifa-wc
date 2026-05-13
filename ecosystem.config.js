@@ -1,6 +1,13 @@
 module.exports = {
   apps: [
     {
+      name: 'push-notify',
+      script: '/home/dor/fifa/scripts/push-notify-loop.mjs',
+      cwd: '/home/dor/fifa',
+      autorestart: true,
+      watch: false,
+    },
+    {
       name: 'sync-live',
       script: '/home/dor/fifa/scripts/sync-live-loop.mjs',
       cwd: '/home/dor/fifa',

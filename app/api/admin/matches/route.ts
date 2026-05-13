@@ -105,3 +105,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
+  try {
+    const { matchId } = await req.json();
+
+    // Get the team IDs before deleting
+    const matchRes = await query('SELECT home_team_id, away_team_id FROM matches WHERE id = $1', [matchId]);
+    if (!matchRes.rows[0]) return NextResponse.json({ error: 'משחק לא נמצא' }, { status: 404 });
+
+    const { home_team_id, away_team_id } = matchRes.rows[0];
+
+    // Delete the match (cascades predictions + match_events)
+    await query('DELETE FROM matches WHERE id = $1', [matchId]);
+
+    // Delete teams that are no longer used by any other match
+    for (const teamId of [home_team_id, away_team_id]) {
+      const usedRes = await query(
+        'SELECT 1 FROM matches WHERE home_team_id = $1 OR away_team_id = $1 LIMIT 1',
+        [teamId]
+      );
+      if (usedRes.rows.length === 0) {
+        await query('DELETE FROM players WHERE team_id = $1', [teamId]);
+        await query('DELETE FROM tournament_winners WHERE team_id = $1', [teamId]);
+        await query('DELETE FROM teams WHERE id = $1', [teamId]);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 });
+  }
+}

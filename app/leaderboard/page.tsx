@@ -14,6 +14,25 @@ interface LeaderboardEntry {
   rank: number;
   champion_name?: string;
   champion_flag?: string;
+  top_scorer_name?: string;
+  top_scorer_photo?: string;
+  top_scorer_team_flag?: string;
+}
+
+function ScorerAvatar({ photoUrl, name }: { photoUrl?: string; name?: string }) {
+  const [err, setErr] = useState(false);
+  if (!photoUrl || err) {
+    return (
+      <span className="w-5 h-5 rounded-full bg-c-border flex items-center justify-center text-[9px] text-c-subtle font-bold shrink-0">
+        {name?.charAt(0)?.toUpperCase() ?? '?'}
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={photoUrl} alt={name ?? ''} width={20} height={20} onError={() => setErr(true)}
+      className="w-5 h-5 rounded-full object-cover bg-c-border shrink-0" />
+  );
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -113,13 +132,19 @@ export default function LeaderboardPage() {
                       {idx < 3 ? MEDALS[idx] : <span className="text-c-muted font-bold text-sm">{entry.rank}</span>}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={`font-bold ${isMe ? 'text-[#f97316]' : 'text-c-text'}`}>
                           {entry.display_name}
                           {isMe && <span className="text-xs mr-1">(אני)</span>}
                         </span>
                         {entry.champion_flag && (
                           <TeamFlag flagEmoji={entry.champion_flag} size="sm" />
+                        )}
+                        {entry.top_scorer_photo && (
+                          <ScorerAvatar photoUrl={entry.top_scorer_photo} name={entry.top_scorer_name} />
+                        )}
+                        {entry.top_scorer_team_flag && !entry.top_scorer_photo && (
+                          <TeamFlag flagEmoji={entry.top_scorer_team_flag} size="sm" />
                         )}
                       </div>
                       <div className="flex gap-3 text-xs text-c-muted mt-1">

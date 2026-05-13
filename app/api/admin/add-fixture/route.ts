@@ -36,6 +36,7 @@ const HEBREW_NAMES: Record<string, string> = {
   'Greece': 'יוון', 'Kuwait': 'כווית', 'Iraq': 'עיראק',
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const COUNTRY_CODES: Record<string, string> = {
   'Mexico': 'MX', 'South Africa': 'ZA', 'South Korea': 'KR', 'Czech Republic': 'CZ',
   'Czechia': 'CZ', 'Canada': 'CA', 'Bosnia & Herzegovina': 'BA', 'USA': 'US',
@@ -67,10 +68,9 @@ function getStage(round: string): string {
   return 'group';
 }
 
-async function upsertTeam(teamId: number, teamName: string, teamLogo: string): Promise<number> {
+async function upsertTeam(teamId: number, teamName: string): Promise<number> {
   const nameHe = HEBREW_NAMES[teamName] || teamName;
-  const cc = COUNTRY_CODES[teamName] || '';
-  const flag = cc ? `https://flagsapi.com/${cc}/flat/64.png` : teamLogo;
+  const flag = `https://media.api-sports.io/football/teams/${teamId}.png`;
 
   const res = await query(`
     INSERT INTO teams (api_id, name_en, name_he, flag_emoji)
@@ -108,9 +108,8 @@ export async function POST(req: Request) {
     }
 
     // Upsert home team
-    const homeTeamId = await upsertTeam(f.teams.home.id, f.teams.home.name, f.teams.home.logo);
-    // Upsert away team
-    const awayTeamId = await upsertTeam(f.teams.away.id, f.teams.away.name, f.teams.away.logo);
+    const homeTeamId = await upsertTeam(f.teams.home.id, f.teams.home.name);
+    const awayTeamId = await upsertTeam(f.teams.away.id, f.teams.away.name);
 
     // Upsert venue
     let venueId: number | null = null;
