@@ -50,20 +50,26 @@ export default function TakanonModal({ onClose }: Props) {
           <div className="text-white/80 text-sm mt-1">משחק ניחושים פרטי לחברים</div>
         </div>
 
-        {/* Scoring */}
-        <Section title="ניקוד למשחק">
-          <ScoreRow label="תוצאה מדויקת (שני הסטים נכונים)" points="+3" color="text-[#22c55e]" />
+        {/* Scoring - Group */}
+        <Section title="ניקוד — שלב הבתים">
+          <ScoreRow label="תוצאה מדויקת" points="+3" color="text-[#22c55e]" />
           <ScoreRow label="ניחוש מנצח נכון, תוצאה לא מדויקת" points="+1" color="text-[#f97316]" />
-          <ScoreRow label="ניחוש שגוי (מנצח לא נכון)" points="0" color="text-c-subtle" />
-          <ScoreRow label="לא הוגשה תחזית" points="0" color="text-c-subtle" />
+          <ScoreRow label="ניחוש שגוי" points="0" color="text-c-subtle" />
+        </Section>
+
+        {/* Scoring - Playoff */}
+        <Section title="ניקוד — שלב הנוקאאוט 🔥">
+          <Rule>כל הנקודות בשלב הנוקאאוט <strong>מוכפלות אוטומטית ×2</strong></Rule>
+          <ScoreRow label="תוצאה מדויקת" points="+6" color="text-[#22c55e]" />
+          <ScoreRow label="ניחוש מנצח נכון, תוצאה לא מדויקת" points="+2" color="text-[#f97316]" />
+          <ScoreRow label="ניחוש שגוי" points="0" color="text-c-subtle" />
         </Section>
 
         {/* Doubles */}
         <Section title="הכפלת נקודות ×2">
           <Rule>לכל שחקן יש <strong>שתי הכפלות</strong> לאורך כל הטורניר</Rule>
-          <Rule>הכפלה אחת לשלב <strong>הבתים</strong> — ניתן להשתמש בה בכל משחק בית אחד לבחירתך</Rule>
-          <Rule>הכפלה אחת לשלב <strong>הנוקאאוט</strong> (כולל הגמר) — ניתן להשתמש בה בכל משחק נוקאאוט אחד לבחירתך</Rule>
-          <Rule>שימוש בהכפלה מכפיל את כל הנקודות של אותו משחק: <strong>0 / 2 / 6</strong></Rule>
+          <Rule>הכפלה אחת לשלב <strong>הבתים</strong> — ניתן להשתמש בה בכל משחק בית אחד לבחירתך. ניקוד עם הכפלה: <strong>0 / 2 / 6</strong></Rule>
+          <Rule>הכפלה אחת לשלב <strong>הנוקאאוט</strong> (כולל הגמר) — ניתן להשתמש בה בכל משחק נוקאאוט אחד לבחירתך. ניקוד עם הכפלה: <strong>0 / 4 / 12</strong></Rule>
           <Rule>בוחרים את ההכפלה בעת הגשת התחזית או עריכתה — ניתן לשנות עד נעילת המשחק</Rule>
           <Rule>כל הכפלה ניתן להשתמש בה <strong>פעם אחת בלבד</strong></Rule>
         </Section>
@@ -133,14 +139,16 @@ export default function TakanonModal({ onClose }: Props) {
           <h2 className="text-c-text font-bold text-sm mb-3 text-center">סיכום מהיר</h2>
           <div className="grid grid-cols-2 gap-2 text-xs">
             {[
-              ['תוצאה מדויקת', '+3 נק׳'],
-              ['מנצח נכון', '+1 נק׳'],
-              ['הכפלה × 2', '×2 נק׳'],
+              ['תוצאה מדויקת — בתים', '+3 נק׳'],
+              ['מנצח נכון — בתים', '+1 נק׳'],
+              ['תוצאה מדויקת — נוקאאוט', '+6 נק׳'],
+              ['מנצח נכון — נוקאאוט', '+2 נק׳'],
+              ['הכפלה × 2 — בתים', '0/2/6'],
+              ['הכפלה × 2 — נוקאאוט', '0/4/12'],
               ['אלופה נכונה', '+8 נק׳'],
               ['שער מלך שערים', '+1 נק׳'],
               ['מלך שערים נכון', '+8 נק׳'],
               ['נעילה', '5 דק׳ לפני'],
-              ['הכפלות', '2 סה״כ'],
             ].map(([label, val]) => (
               <div key={label} className="flex justify-between items-center bg-c-input rounded-lg px-3 py-2">
                 <span className="text-[#f97316] font-bold">{val}</span>

@@ -19,13 +19,16 @@ export async function GET(req: NextRequest) {
         at.id as away_team_id, at.name_he as away_name_he, at.flag_emoji as away_flag, at.name_en as away_name_en,
         COALESCE(m.venue_name_api, v.name_he) as venue_name, COALESCE(m.venue_city_api, v.city_he) as venue_city, v.country_he as venue_country,
         ch.name_he as channel_name, ch.logo_url as channel_logo,
-        p.home_score as pred_home, p.away_score as pred_away, p.is_double as pred_double, p.points as pred_points
+        p.home_score as pred_home, p.away_score as pred_away, p.is_double as pred_double, p.points as pred_points,
+        sp.home_score as sagi_home, sp.away_score as sagi_away
       FROM matches m
       LEFT JOIN teams ht ON m.home_team_id = ht.id
       LEFT JOIN teams at ON m.away_team_id = at.id
       LEFT JOIN venues v ON m.venue_id = v.id
       LEFT JOIN channels ch ON m.channel_id = ch.id
       LEFT JOIN predictions p ON p.match_id = m.id AND p.user_id = $1
+      LEFT JOIN predictions sp ON sp.match_id = m.id
+        AND sp.user_id = (SELECT id FROM users WHERE is_bot = true LIMIT 1)
       ORDER BY m.match_date ASC
       LIMIT $2 OFFSET $3
     `, [session.id, limit, offset]);

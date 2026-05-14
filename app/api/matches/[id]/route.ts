@@ -36,6 +36,13 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       [matchId, session.id]
     );
 
+    // Sagi's prediction (always visible)
+    const sagiResult = await query(`
+      SELECT p.home_score, p.away_score FROM predictions p
+      JOIN users u ON u.id = p.user_id
+      WHERE p.match_id = $1 AND u.is_bot = true LIMIT 1
+    `, [matchId]);
+
     // If match started, get all predictions
     const matchStarted = new Date() >= new Date(match.match_date);
     let allPredictions: unknown[] = [];
@@ -62,6 +69,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({
       match,
       myPrediction: predResult.rows[0] || null,
+      sagiPrediction: sagiResult.rows[0] || null,
       allPredictions,
       matchStarted,
       events: eventsResult.rows,

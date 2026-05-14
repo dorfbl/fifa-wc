@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
         pred.away_score,
         match.home_score,
         match.away_score,
-        pred.is_double
+        pred.is_double,
+        match.stage
       );
       await query('UPDATE predictions SET points = $1 WHERE id = $2', [points, pred.id]);
     }

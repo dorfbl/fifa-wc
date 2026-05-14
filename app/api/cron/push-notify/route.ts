@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     JOIN teams at ON m.away_team_id = at.id
     WHERE m.status = 'scheduled'
       AND m.push_sent_at IS NULL
-      AND m.match_date BETWEEN NOW() + INTERVAL '20 minutes' AND NOW() + INTERVAL '40 minutes'
+      AND m.match_date BETWEEN NOW() + INTERVAL '50 minutes' AND NOW() + INTERVAL '70 minutes'
   `);
 
   if (matchesResult.rows.length === 0) {

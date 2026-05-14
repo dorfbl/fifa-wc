@@ -15,6 +15,13 @@ module.exports = {
       watch: false,
     },
     {
+      name: 'sagi-bot',
+      script: '/home/dor/fifa/scripts/sagi-bot-loop.mjs',
+      cwd: '/home/dor/fifa',
+      autorestart: true,
+      watch: false,
+    },
+    {
       name: 'mondial-2026',
       script: 'node_modules/.bin/next',
       args: 'start -p 3011',

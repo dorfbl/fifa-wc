@@ -34,6 +34,8 @@ interface MatchRow {
   pred_away: number | null;
   pred_double: boolean;
   pred_points: number | null;
+  sagi_home: number | null;
+  sagi_away: number | null;
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -125,6 +127,16 @@ function MatchCard({ match }: { match: MatchRow }) {
             ) : match.channel_name ? (
               <span className="text-c-muted">{match.channel_name}</span>
             ) : null}
+          </div>
+        )}
+
+        {/* Sagi's recommendation */}
+        {match.sagi_home !== null && match.sagi_away !== null && (
+          <div className="flex items-center gap-2 mb-3 bg-c-input rounded-xl px-3 py-1 overflow-visible">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/sagi.png" alt="שגיא" className="w-14 h-14 object-contain shrink-0 -my-2" />
+            <span className="text-c-muted text-xs">ההמלצה של שגיא:</span>
+            <span className="font-bold text-c-text text-sm">{match.sagi_home} – {match.sagi_away}</span>
           </div>
         )}
 

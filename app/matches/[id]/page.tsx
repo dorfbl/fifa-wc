@@ -52,7 +52,7 @@ interface MatchEvent {
 function EventIcon({ type, detail }: { type: string; detail: string }) {
   if (type === 'goal') {
     if (detail.toLowerCase().includes('penalty')) return <span>⚽ פנ׳</span>;
-    if (detail.toLowerCase().includes('own')) return <span>⚽🔴</span>;
+    if (detail.toLowerCase().includes('own')) return <span style={{ filter: 'sepia(1) saturate(5) hue-rotate(310deg)' }}>⚽</span>;
     return <span>⚽</span>;
   }
   if (type === 'card') {
@@ -141,6 +141,8 @@ export default function MatchDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [sagiPrediction, setSagiPrediction] = useState<{ home_score: number; away_score: number } | null>(null);
+  const [groupStandings, setGroupStandings] = useState<Array<{ id: number; name_he: string; flag_emoji: string; p: number; w: number; d: number; l: number; gf: number; ga: number; pts: number }> | null>(null);
 
   const loadMatch = (initial = false) => {
     fetch(`/api/matches/${id}`)
@@ -148,9 +150,17 @@ export default function MatchDetailPage() {
       .then(data => {
         setMatch(data.match);
         setMyPrediction(data.myPrediction);
+        setSagiPrediction(data.sagiPrediction || null);
         setAllPredictions(data.allPredictions || []);
         setEvents(data.events || []);
         setMatchStarted(data.matchStarted);
+        // Fetch group standings for unlocked group matches
+        if (initial && data.match?.stage === 'group' && data.match?.group_letter && !isMatchLocked(data.match.match_date)) {
+          fetch(`/api/groups/${data.match.group_letter}`)
+            .then(r => r.json())
+            .then(d => setGroupStandings(d.teams || null))
+            .catch(() => {});
+        }
         if (initial && data.myPrediction) {
           setHomeInput(String(data.myPrediction.home_score));
           setAwayInput(String(data.myPrediction.away_score));
@@ -352,6 +362,16 @@ export default function MatchDetailPage() {
             {myPrediction ? 'ערוך תחזית' : 'הגש תחזית'}
           </h2>
 
+          {/* Sagi's recommendation */}
+          {sagiPrediction && (
+            <div className="flex items-center gap-2 mb-4 bg-c-input rounded-xl px-3 py-1 overflow-visible">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/sagi.png" alt="שגיא" className="w-14 h-14 object-contain shrink-0 -my-2" />
+              <span className="text-c-muted text-xs flex-1">ההמלצה של שגיא:</span>
+              <span className="font-bold text-c-text">{sagiPrediction.home_score} – {sagiPrediction.away_score}</span>
+            </div>
+          )}
+
           {/* Score inputs */}
           <div className="flex items-center justify-center gap-4 mb-5">
             <div className="flex flex-col items-center gap-2">
@@ -476,6 +496,53 @@ export default function MatchDetailPage() {
       {matchStarted && allPredictions.length === 0 && (
         <div className="bg-c-card rounded-2xl border border-c-border p-5 text-center text-c-muted">
           <p>אין תחזיות למשחק זה</p>
+        </div>
+      )}
+
+      {/* Group standings — only when betting is open, shown at bottom */}
+      {!locked && groupStandings && groupStandings.length > 0 && (
+        <div className="bg-c-card rounded-2xl border border-c-border p-4 mt-4">
+          <h2 className="font-bold text-c-text text-sm mb-3">
+            טבלת בית {match.group_letter ? match.group_letter.charCodeAt(0) - 64 : ''}
+          </h2>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-c-muted border-b border-c-border">
+                <th className="text-right pb-2 font-medium w-5">#</th>
+                <th className="text-right pb-2 font-medium pr-2">קבוצה</th>
+                <th className="pb-2 font-medium text-center w-7">מ׳</th>
+                <th className="pb-2 font-medium text-center w-7">נ׳</th>
+                <th className="pb-2 font-medium text-center w-7">ת׳</th>
+                <th className="pb-2 font-medium text-center w-7">ה׳</th>
+                <th className="pb-2 font-medium text-center w-10">הפרש</th>
+                <th className="pb-2 font-bold text-center w-8 text-[#f97316]">נק׳</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groupStandings.map((team, idx) => {
+                const isPlaying = team.id === match.home_team_id || team.id === match.away_team_id;
+                return (
+                  <tr key={team.id} className={`border-b border-c-border last:border-0 ${!isPlaying ? 'opacity-50' : ''}`}>
+                    <td className="py-2 text-c-muted">{idx + 1}</td>
+                    <td className="py-2 pr-2">
+                      <div className="flex items-center gap-1.5">
+                        <TeamFlag flagEmoji={team.flag_emoji} size="sm" />
+                        <span className={isPlaying ? 'font-bold text-c-text' : 'text-c-muted'}>
+                          {team.name_he}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-2 text-center text-c-muted">{team.p}</td>
+                    <td className="py-2 text-center text-c-muted">{team.w}</td>
+                    <td className="py-2 text-center text-c-muted">{team.d}</td>
+                    <td className="py-2 text-center text-c-muted">{team.l}</td>
+                    <td className="py-2 text-center text-c-muted">{team.gf - team.ga > 0 ? '+' : ''}{team.gf - team.ga}</td>
+                    <td className={`py-2 text-center font-bold ${isPlaying ? 'text-[#f97316]' : 'text-c-text'}`}>{team.pts}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

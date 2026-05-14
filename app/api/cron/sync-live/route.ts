@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
           // Calculate points
           const preds = await query('SELECT * FROM predictions WHERE match_id=$1', [match.id]);
           for (const pred of preds.rows) {
-            const pts = calculatePoints(pred.home_score, pred.away_score, homeScore, awayScore, pred.is_double);
+            const pts = calculatePoints(pred.home_score, pred.away_score, homeScore, awayScore, pred.is_double, match.stage);
             await query('UPDATE predictions SET points=$1 WHERE id=$2', [pts, pred.id]);
           }
 
@@ -171,8 +171,17 @@ async function syncEvents(
     assist: { name: string | null };
   }>
 ) {
+  // Build a set of canonical keys for events coming from the API
+  // Key: elapsed|event_type|player_name  (same as the DB unique constraint)
+  const apiKeys = new Set<string>();
+
   for (const ev of events) {
     if (!ev.type || !ev.player?.name) continue;
+
+    const elapsed = ev.time?.elapsed || 0;
+    const eventType = ev.type.toLowerCase();
+    const playerName = ev.player.name;
+    apiKeys.add(`${elapsed}|${eventType}|${playerName}`);
 
     // Find team db id
     const teamApiId = String(ev.team?.id);
@@ -189,14 +198,27 @@ async function syncEvents(
         player_api_id = COALESCE($9, match_events.player_api_id)
     `, [
       matchId,
-      ev.time?.elapsed || 0,
+      elapsed,
       ev.time?.extra || null,
-      ev.type.toLowerCase(),
+      eventType,
       ev.detail || '',
       teamId,
-      ev.player?.name || '',
+      playerName,
       ev.assist?.name || null,
       ev.player?.id || null,
     ]);
+  }
+
+  // Remove DB events that no longer exist in the API response
+  // (VAR-canceled goals, rescinded red cards, etc.)
+  const dbEvents = await query(
+    'SELECT id, elapsed, event_type, player_name FROM match_events WHERE match_id=$1',
+    [matchId]
+  );
+  for (const row of dbEvents.rows) {
+    const key = `${row.elapsed}|${row.event_type}|${row.player_name}`;
+    if (!apiKeys.has(key)) {
+      await query('DELETE FROM match_events WHERE id=$1', [row.id]);
+    }
   }
 }
