@@ -25,14 +25,14 @@ export default function PushBanner() {
   if (!supported || subscribed || dismissed) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-40 bg-[#f97316] px-4 py-2.5 flex items-center gap-3 shadow-lg">
+    <div className="fixed top-0 left-0 right-0 z-40 bg-[#9333ea] px-4 py-2.5 flex items-center gap-3 shadow-lg">
       <span className="text-white text-sm font-bold flex-1">
         🔔 הפעל התראות ותקבל תזכורת שעה לפני קיקאוף
       </span>
       <button
         onClick={handleSubscribe}
         disabled={loading}
-        className="bg-white text-[#f97316] text-xs font-bold px-3 py-1 rounded-full shrink-0"
+        className="bg-white text-[#9333ea] text-xs font-bold px-3 py-1 rounded-full shrink-0"
       >
         {loading ? '...' : 'הפעל'}
       </button>

@@ -23,9 +23,9 @@
 
     --background: #0a0a0a;
     --foreground: #f8f8f8;
-    --primary: #f97316;
+    --primary: #9333ea;
     --primary-foreground: #ffffff;
-    --ring: #f97316;
+    --ring: #9333ea;
     --radius: 0.75rem;
   }
 
@@ -83,45 +83,53 @@
   }
 
   .card-today {
-    border-color: #f97316 !important;
+    border-color: #9333ea !important;
     animation: card-glow 2s ease-in-out infinite;
   }
 
   @keyframes card-glow {
     0%, 100% {
-      box-shadow: 0 0 6px 1px #f9731660, 0 0 0 1px #f97316;
+      box-shadow: 0 0 6px 1px #9333ea60, 0 0 0 1px #9333ea;
     }
     50% {
-      box-shadow: 0 0 18px 4px #eab30870, 0 0 0 1px #eab308;
+      box-shadow: 0 0 18px 4px #c084fc70, 0 0 0 1px #c084fc;
     }
   }
 
   .btn-orange {
     display: block;
-    background-color: #f97316;
+    background: linear-gradient(135deg, #7c3aed 0%, #c026d3 100%);
     color: #ffffff;
     font-weight: 700;
-    border-radius: 0.75rem;
-    width: 100%;
-    padding: 0.875rem 1.5rem;
-    font-size: 1rem;
-    transition: opacity 0.15s;
+    border-radius: 9999px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0.75rem 2.5rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    transition: box-shadow 0.2s, transform 0.15s, opacity 0.15s;
     text-align: center;
     cursor: pointer;
     border: none;
+    box-shadow: 0 4px 22px rgba(147, 51, 234, 0.38);
   }
 
   .btn-orange:hover {
-    opacity: 0.9;
+    box-shadow: 0 6px 28px rgba(192, 38, 211, 0.45);
+    transform: translateY(-1px);
   }
 
   .btn-orange:active {
-    opacity: 0.8;
+    transform: translateY(0);
+    box-shadow: 0 2px 12px rgba(147, 51, 234, 0.3);
   }
 
   .btn-orange:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
   }
 
   .input-dark {
@@ -137,7 +145,7 @@
   }
 
   .input-dark:focus {
-    border-color: #f97316;
+    border-color: #9333ea;
   }
 
   .input-dark::placeholder {

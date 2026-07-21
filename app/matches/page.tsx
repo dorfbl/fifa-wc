@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { formatIsraelDate, formatIsraelTime, isMatchLocked, isWithin60Minutes, isToday } from '@/lib/time';
 import TeamFlag from '@/components/TeamFlag';
 import { useThemeStore } from '@/stores/themeStore';
@@ -25,6 +26,10 @@ interface MatchRow {
   group_letter: string;
   home_score: number | null;
   away_score: number | null;
+  score_90_home: number | null;
+  score_90_away: number | null;
+  pen_home: number | null;
+  pen_away: number | null;
   venue_name: string;
   venue_city: string;
   venue_country: string;
@@ -34,23 +39,28 @@ interface MatchRow {
   pred_away: number | null;
   pred_double: boolean;
   pred_points: number | null;
+  scorer_bonus: number | null;
   sagi_home: number | null;
   sagi_away: number | null;
+  elapsed: number | null;
 }
 
+const STAGE_ORDER = ['group', 'round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'third_place', 'final'];
+
 const STAGE_LABELS: Record<string, string> = {
-  group: 'בית',
+  group: 'שלב הבתים',
   round_of_32: 'סבב 32',
   round_of_16: 'שמינית גמר',
   quarter_final: 'רבע גמר',
   semi_final: 'חצי גמר',
+  third_place: 'מקום שלישי',
   final: 'גמר',
 };
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, elapsed }: { status: string; elapsed?: number | null }) {
   if (status === 'live') return (
     <span className="bg-[#22c55e] text-black text-xs font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">
-      חי
+      {elapsed != null ? `${elapsed}′` : 'חי'}
     </span>
   );
   if (status === 'finished') return (
@@ -81,7 +91,7 @@ function MatchCard({ match }: { match: MatchRow }) {
           <div className="text-c-muted text-sm">
             {formatIsraelDate(match.match_date)} · {formatIsraelTime(match.match_date)}
           </div>
-          <StatusBadge status={match.status} />
+          <StatusBadge status={match.status} elapsed={match.elapsed} />
         </div>
 
         {/* Teams + score */}
@@ -97,8 +107,16 @@ function MatchCard({ match }: { match: MatchRow }) {
           {/* Score / vs */}
           <div className="flex-shrink-0 mx-3 text-center">
             {started && match.home_score !== null ? (
-              <div className="text-2xl font-bold text-c-text">
-                {match.home_score} - {match.away_score}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="text-2xl font-bold text-c-text">
+                  {match.home_score} - {match.away_score}
+                </div>
+                {match.pen_home != null && (
+                  <span className="text-xs text-[#9333ea] font-semibold">({match.pen_home}-{match.pen_away} ע״ב)</span>
+                )}
+                {match.score_90_home != null && match.pen_home == null && (
+                  <span className="text-xs text-c-muted">הארכה</span>
+                )}
               </div>
             ) : (
               <div className="text-c-muted font-bold text-lg">נגד</div>
@@ -146,29 +164,36 @@ function MatchCard({ match }: { match: MatchRow }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-c-muted text-sm">התחזית שלי:</span>
-                <span className="text-[#f97316] font-bold text-lg">
+                <span className="text-[#9333ea] font-bold text-lg">
                   {match.pred_home} - {match.pred_away}
                 </span>
                 {match.pred_double && (
                   <span className="text-[#eab308] text-xs font-bold bg-[#eab30820] px-1.5 py-0.5 rounded">×2</span>
                 )}
               </div>
-              {match.pred_points !== null && (
-                <span className={`font-bold text-sm ${match.pred_points > 0 ? 'text-[#22c55e]' : 'text-c-muted'}`}>
-                  {match.pred_points > 0 ? `+${match.pred_points}` : '+0'}
-                </span>
-              )}
+              {match.pred_points !== null && (() => {
+                const bonus = match.scorer_bonus ?? 0;
+                const total = match.pred_points + bonus;
+                return (
+                  <div className="flex items-center gap-1.5">
+                    {bonus > 0 && (
+                      <span className="text-[#f97316] text-xs font-bold bg-[#f9731620] px-1.5 py-0.5 rounded">
+                        ⚽+{bonus}
+                      </span>
+                    )}
+                    <span className={`font-bold text-sm ${total > 0 ? 'text-[#22c55e]' : 'text-c-muted'}`}>
+                      {total > 0 ? `+${total}` : '+0'}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           ) : locked ? (
             <div className="text-c-subtle text-sm text-center">נעול – לא הוגשה תחזית</div>
           ) : urgent ? (
-            <div className="bg-[#f97316] rounded-xl px-4 py-2.5 text-center">
-              <span className="text-white font-bold text-sm">הזדמנות אחרונה – הגש תחזית</span>
-            </div>
+            <div className="btn-orange py-2.5 text-sm">⚡ הגש תחזית</div>
           ) : (
-            <div className="bg-[#f97316] rounded-xl px-4 py-2.5 text-center">
-              <span className="text-white font-bold text-sm">הגש תחזית עכשיו</span>
-            </div>
+            <div className="btn-orange py-2.5 text-sm">הגש תחזית</div>
           )}
         </div>
       </div>
@@ -178,42 +203,61 @@ function MatchCard({ match }: { match: MatchRow }) {
 
 export default function MatchesPage() {
   const [matches, setMatches] = useState<MatchRow[]>([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const nextMatchRef = useRef<number | null>(null);
+  const firstUpcomingRef = useRef<HTMLDivElement | null>(null);
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get('focus') ?? (typeof window !== 'undefined' ? sessionStorage.getItem('lastMatchId') : null);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/matches?page=${page}`)
+    fetch('/api/matches')
       .then(r => r.json())
       .then(data => {
         setMatches(data.matches || []);
-        setTotalPages(data.totalPages || 1);
-
-        // Find next upcoming match (first not finished/live)
-        const now = new Date();
-        const upcoming = (data.matches || []).findIndex(
-          (m: MatchRow) => new Date(m.match_date) > now && m.status === 'scheduled'
-        );
-        nextMatchRef.current = upcoming;
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [page]);
+  }, []);
+
+  // Scroll to focused match (after saving a bet) or first upcoming
+  useEffect(() => {
+    if (loading) return;
+    if (focusId) {
+      const el = document.getElementById(`match-${focusId}`);
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'instant' });
+        // Pulse highlight only when coming from a save (URL param), not plain back nav
+        if (searchParams.get('focus')) {
+          el.classList.add('ring-2', 'ring-[#9333ea]', 'ring-offset-2', 'ring-offset-c-bg');
+          setTimeout(() => el.classList.remove('ring-2', 'ring-[#9333ea]', 'ring-offset-2', 'ring-offset-c-bg'), 1500);
+        }
+        sessionStorage.removeItem('lastMatchId');
+        return;
+      }
+    }
+    if (firstUpcomingRef.current) {
+      firstUpcomingRef.current.scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+  }, [loading, focusId, searchParams]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+        <div className="text-[#9333ea] text-4xl animate-spin">⚽</div>
       </div>
     );
   }
 
-  return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold text-c-text mb-4">משחקים</h1>
+  // Group matches by stage, preserving order
+  const grouped = STAGE_ORDER.reduce<Record<string, MatchRow[]>>((acc, stage) => {
+    const stageMatches = matches.filter(m => m.stage === stage);
+    if (stageMatches.length > 0) acc[stage] = stageMatches;
+    return acc;
+  }, {});
 
+  let firstUpcomingSet = false;
+
+  return (
+    <div>
       {matches.length === 0 ? (
         <div className="text-center text-c-muted py-12">
           <div className="text-4xl mb-3">📅</div>
@@ -221,30 +265,32 @@ export default function MatchesPage() {
           <p className="text-sm mt-1">המנהל יסנכרן בקרוב</p>
         </div>
       ) : (
-        matches.map(m => <MatchCard key={m.id} match={m} />)
-      )}
+        Object.entries(grouped).map(([stage, stageMatches]) => (
+          <div key={stage}>
+            {/* Sticky round header */}
+            <div className="sticky top-0 z-10 bg-c-bg px-4 py-2 border-b border-c-border">
+              <span className="text-xs font-bold text-[#9333ea] uppercase tracking-wider">
+                {STAGE_LABELS[stage] || stage}
+              </span>
+            </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-4 gap-3">
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="flex-1 bg-c-card border border-c-border rounded-xl py-3 text-c-text font-bold disabled:opacity-40"
-          >
-            ← הקודם
-          </button>
-          <span className="text-c-muted text-sm whitespace-nowrap">
-            {page} / {totalPages}
-          </span>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="flex-1 bg-c-card border border-c-border rounded-xl py-3 text-c-text font-bold disabled:opacity-40"
-          >
-            הבא →
-          </button>
-        </div>
+            <div className="p-4 pt-3">
+              {stageMatches.map(m => {
+                const isUpcoming = m.status === 'live' || (m.status === 'scheduled' && new Date(m.match_date) > new Date());
+                let ref: React.RefCallback<HTMLDivElement> | undefined;
+                if (isUpcoming && !firstUpcomingSet) {
+                  firstUpcomingSet = true;
+                  ref = (el) => { firstUpcomingRef.current = el; };
+                }
+                return (
+                  <div key={m.id} id={`match-${m.id}`} ref={ref} className="rounded-2xl transition-shadow duration-500">
+                    <MatchCard match={m} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))
       )}
     </div>
   );

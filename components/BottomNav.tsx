@@ -61,11 +61,11 @@ export default function BottomNav() {
               key={tab.href}
               href={tab.href}
               className={`flex-1 relative flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
-                active ? 'text-[#f97316]' : 'text-c-muted'
+                active ? 'text-[#9333ea]' : 'text-c-muted'
               }`}
             >
               {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#f97316] rounded-b-full" />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#9333ea] rounded-b-full" />
               )}
               {tab.icon}
               <span className="text-xs font-bold">{tab.label}</span>

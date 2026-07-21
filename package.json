@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@base-ui/react": "^1.4.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/pg": "^8.20.0",
@@ -33,6 +34,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
+    "cypress": "^15.15.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",

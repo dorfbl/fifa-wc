@@ -47,7 +47,7 @@ export default function PinInput({ onComplete, title, error, loading }: PinInput
             key={i}
             className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
               i < pin.length
-                ? 'bg-[#f97316] border-[#f97316] scale-110'
+                ? 'bg-[#9333ea] border-[#9333ea] scale-110'
                 : 'bg-transparent border-c-muted'
             }`}
           />

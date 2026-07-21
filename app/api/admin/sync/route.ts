@@ -84,6 +84,13 @@ function getStage(round: string): string {
   return 'group';
 }
 
+// Extract group letter from round name e.g. "Group Stage - 3" → null (no letter in round)
+// Group letter comes from standings map, this is just a fallback
+function getGroupLetterFromRound(round: string): string | null {
+  const m = round.match(/Group ([A-L])\b/i);
+  return m ? m[1].toUpperCase() : null;
+}
+
 export async function POST() {
   const denied = await requireAdmin();
   if (denied) return denied;
@@ -95,7 +102,10 @@ export async function POST() {
     const groups: Array<Array<{ team: { id: number }; group: string }>> = standingsData.response?.[0]?.league?.standings || [];
     for (const group of groups) {
       if (!group[0]) continue;
-      const letter = group[0].group?.replace('Group ', '') || '';
+      const raw = group[0].group || '';
+      const letter = raw.replace(/^Group\s+/i, '').trim();
+      // Skip non-group entries like "Ranking of third-placed teams"
+      if (!letter || letter.length > 5 || !/^[A-Z0-9]+$/i.test(letter)) continue;
       for (const entry of group) {
         teamGroupMap.set(entry.team.id, letter);
       }
@@ -187,7 +197,7 @@ export async function POST() {
       }
 
       const stage = getStage(f.league.round || '');
-      const groupLetter = teamGroupMap.get(f.teams.home.id) || null;
+      const groupLetter = teamGroupMap.get(f.teams.home.id) || getGroupLetterFromRound(f.league.round || '') || null;
       const statusShort = f.fixture.status?.short || 'NS';
       const dbStatus = ['FT','AET','PEN'].includes(statusShort) ? 'finished'
         : ['1H','HT','2H','ET','P'].includes(statusShort) ? 'live'
@@ -195,10 +205,15 @@ export async function POST() {
 
       const venueName = fv?.name || null;
       const venueCity = fv?.city || null;
+      const wentExtra = ['AET', 'PEN'].includes(statusShort);
+      const score90Home = wentExtra ? (f.score?.fulltime?.home ?? null) : null;
+      const score90Away = wentExtra ? (f.score?.fulltime?.away ?? null) : null;
+      const penHome = f.score?.penalty?.home ?? null;
+      const penAway = f.score?.penalty?.away ?? null;
 
       await query(`
-        INSERT INTO matches (api_id, apisports_id, home_team_id, away_team_id, venue_id, venue_name_api, venue_city_api, match_date, stage, group_letter, status, home_score, away_score)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        INSERT INTO matches (api_id, apisports_id, home_team_id, away_team_id, venue_id, venue_name_api, venue_city_api, match_date, stage, group_letter, status, home_score, away_score, score_90_home, score_90_away, pen_home, pen_away)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         ON CONFLICT (apisports_id) WHERE apisports_id IS NOT NULL DO UPDATE SET
           api_id = $1,
           home_team_id = $3,
@@ -212,6 +227,10 @@ export async function POST() {
           status = CASE WHEN matches.status = 'finished' THEN 'finished' ELSE $11 END,
           home_score = COALESCE($12, matches.home_score),
           away_score = COALESCE($13, matches.away_score),
+          score_90_home = $14,
+          score_90_away = $15,
+          pen_home = $16,
+          pen_away = $17,
           updated_at = NOW()
       `, [
         String(f.fixture.id),
@@ -227,6 +246,10 @@ export async function POST() {
         dbStatus,
         f.goals.home,
         f.goals.away,
+        score90Home,
+        score90Away,
+        penHome,
+        penAway,
       ]);
       synced++;
     }

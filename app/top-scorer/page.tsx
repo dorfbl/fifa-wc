@@ -134,7 +134,7 @@ export default function TopScorerPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+        <div className="text-[#9333ea] text-4xl animate-spin">⚽</div>
       </div>
     );
   }
@@ -156,7 +156,7 @@ export default function TopScorerPage() {
       )}
 
       {current && (
-        <div className="bg-[var(--c-card-trans)] border border-[#f97316] rounded-xl p-3 mb-4 flex items-center gap-3">
+        <div className="bg-[var(--c-card-trans)] border border-[#9333ea] rounded-xl p-3 mb-4 flex items-center gap-3">
           <PlayerAvatar photoUrl={current.photo_url} name={current.player_name} size={40} />
           <div className="flex-1 min-w-0">
             <div className="text-xs text-c-muted">הבחירה הנוכחית שלך</div>
@@ -194,7 +194,7 @@ export default function TopScorerPage() {
                           onClick={() => setSelected(p.id)}
                           className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border transition-all ${
                             selected === p.id
-                              ? 'border-[#f97316] bg-[#f9731615]'
+                              ? 'border-[#9333ea] bg-[#9333ea15]'
                               : 'border-c-border bg-c-card'
                           }`}
                         >
@@ -213,7 +213,7 @@ export default function TopScorerPage() {
                 placeholder="חפש שחקן או קבוצה..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full bg-c-card border border-c-border rounded-xl px-4 py-3 text-c-text text-right placeholder:text-c-subtle focus:outline-none focus:border-[#f97316] mb-4"
+                className="w-full bg-c-card border border-c-border rounded-xl px-4 py-3 text-c-text text-right placeholder:text-c-subtle focus:outline-none focus:border-[#9333ea] mb-4"
               />
 
               <div className="flex flex-col gap-2 mb-6">
@@ -231,7 +231,7 @@ export default function TopScorerPage() {
                         {team.group_letter && (
                           <span className="text-c-subtle text-xs ml-1">בית {team.group_letter}</span>
                         )}
-                        {hasSelected && <span className="text-[#f97316] text-xs font-bold">✓</span>}
+                        {hasSelected && <span className="text-[#9333ea] text-xs font-bold">✓</span>}
                         <span className="text-c-subtle text-xs">{isOpen ? '▲' : '▼'}</span>
                       </button>
                       {isOpen && (
@@ -242,13 +242,13 @@ export default function TopScorerPage() {
                               onClick={() => setSelected(player.id)}
                               className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all text-right ${
                                 selected === player.id
-                                  ? 'bg-[#f9731620] border border-[#f97316]'
+                                  ? 'bg-[#9333ea20] border border-[#9333ea]'
                                   : 'hover:bg-c-bg'
                               }`}
                             >
                               <PlayerAvatar photoUrl={player.photo_url} name={player.name} size={32} />
                               <span className="flex-1 text-c-text text-sm">{player.name}</span>
-                              {selected === player.id && <span className="text-[#f97316] text-sm">✓</span>}
+                              {selected === player.id && <span className="text-[#9333ea] text-sm">✓</span>}
                             </button>
                           ))}
                         </div>

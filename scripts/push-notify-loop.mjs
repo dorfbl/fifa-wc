@@ -9,8 +9,14 @@ async function notify() {
       method: 'POST',
       headers: { 'x-cron-secret': SECRET },
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch {
+      console.error(new Date().toISOString(), 'push bad response:', res.status, text.slice(0, 100));
+      return;
+    }
     if (data.sent > 0) console.log(new Date().toISOString(), `push sent: ${data.sent}`);
+    else if (data.error) console.error(new Date().toISOString(), 'push api error:', data.error);
   } catch (e) {
     console.error(new Date().toISOString(), 'push error:', e.message);
   }

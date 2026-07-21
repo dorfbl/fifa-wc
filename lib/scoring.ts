@@ -10,21 +10,26 @@ export function calculatePoints(
   actualHome: number,
   actualAway: number,
   isDouble: boolean,
-  stage = 'group'
+  stage = 'group',
+  score90Home?: number | null,
+  score90Away?: number | null
 ): number {
+  // For knockout matches that went to ET/penalties, score predictions on the 90-min result
+  const effectiveHome = (score90Home != null) ? score90Home : actualHome;
+  const effectiveAway = (score90Away != null) ? score90Away : actualAway;
+
   let points = 0;
 
-  if (predHome === actualHome && predAway === actualAway) {
-    points = 3; // Exact score
+  if (predHome === effectiveHome && predAway === effectiveAway) {
+    points = 3;
   } else {
     const predWinner = predHome > predAway ? 'home' : predHome < predAway ? 'away' : 'draw';
-    const actualWinner = actualHome > actualAway ? 'home' : actualHome < actualAway ? 'away' : 'draw';
-    if (predWinner === actualWinner) {
-      points = 1; // Correct winner
+    const effectiveWinner = effectiveHome > effectiveAway ? 'home' : effectiveHome < effectiveAway ? 'away' : 'draw';
+    if (predWinner === effectiveWinner) {
+      points = 1;
     }
   }
 
-  // Playoff stage: all points automatically doubled
   if (isPlayoffStage(stage)) points *= 2;
 
   return isDouble ? points * 2 : points;

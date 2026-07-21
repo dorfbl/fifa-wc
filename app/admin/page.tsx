@@ -53,7 +53,7 @@ export default function AdminPage() {
   if (checking) {
     return (
       <div className="min-h-dvh bg-c-bg flex items-center justify-center">
-        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+        <div className="text-[#9333ea] text-4xl animate-spin">⚽</div>
       </div>
     );
   }
@@ -109,7 +109,7 @@ function AdminMenu({ onSelect }: { onSelect: (s: AdminSection) => void }) {
         <button
           key={item.key}
           onClick={() => onSelect(item.key)}
-          className="bg-c-card border border-c-border rounded-2xl p-4 flex items-center gap-4 text-right w-full hover:border-[#f97316] transition-colors"
+          className="bg-c-card border border-c-border rounded-2xl p-4 flex items-center gap-4 text-right w-full hover:border-[#9333ea] transition-colors"
         >
           <span className="text-3xl">{item.icon}</span>
           <div className="flex-1 text-right">
@@ -129,6 +129,10 @@ function AdminUsers({ onBack }: { onBack: () => void }) {
   const [form, setForm] = useState({ username: '', displayName: '', pin: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [resetTarget, setResetTarget] = useState<{ id: number; name: string } | null>(null);
+  const [resetPin, setResetPin] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
 
   const loadUsers = () => {
     fetch('/api/admin/users').then(r => r.json()).then(d => {
@@ -167,10 +171,60 @@ function AdminUsers({ onBack }: { onBack: () => void }) {
     loadUsers();
   };
 
+  const handleResetPin = async () => {
+    if (!resetTarget) return;
+    setResetError('');
+    if (!/^\d{4}$/.test(resetPin)) { setResetError('PIN חייב להיות 4 ספרות'); return; }
+    setResetLoading(true);
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: resetTarget.id, pin: resetPin }),
+    });
+    const d = await res.json();
+    setResetLoading(false);
+    if (!res.ok) { setResetError(d.error || 'שגיאה'); return; }
+    setResetTarget(null);
+    setResetPin('');
+    loadUsers();
+  };
+
   return (
     <div>
       <button onClick={onBack} className="text-c-muted text-sm mb-4">← חזרה</button>
       <h2 className="text-lg font-bold text-c-text mb-4">👥 שחקנים</h2>
+
+      {/* Reset PIN modal */}
+      {resetTarget && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
+          <div className="bg-c-card border border-c-border rounded-2xl p-5 w-full max-w-xs">
+            <h3 className="font-bold text-c-text mb-1">איפוס PIN</h3>
+            <p className="text-c-muted text-sm mb-4">{resetTarget.name} יאלץ לשנות PIN בכניסה הבאה</p>
+            <input
+              placeholder="PIN חדש (4 ספרות)"
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={resetPin}
+              onChange={e => setResetPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className="input-dark w-full mb-3 text-center text-2xl tracking-widest"
+              autoFocus
+            />
+            {resetError && <p className="text-[#b91c1c] text-sm mb-3">{resetError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setResetTarget(null); setResetPin(''); setResetError(''); }}
+                className="flex-1 py-2 rounded-xl border border-c-border text-c-muted text-sm"
+              >ביטול</button>
+              <button
+                onClick={handleResetPin}
+                disabled={resetLoading || resetPin.length !== 4}
+                className="flex-1 py-2 rounded-xl bg-[#9333ea] text-white text-sm font-bold disabled:opacity-40"
+              >{resetLoading ? '...' : 'אפס PIN'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add user form */}
       <form onSubmit={handleAdd} className="bg-c-card border border-c-border rounded-2xl p-4 mb-4">
@@ -207,18 +261,26 @@ function AdminUsers({ onBack }: { onBack: () => void }) {
       ) : (
         <div className="flex flex-col gap-2">
           {users.map(u => (
-            <div key={u.id} className="bg-c-card border border-c-border rounded-xl p-3 flex items-center justify-between">
-              <div>
+            <div key={u.id} className="bg-c-card border border-c-border rounded-xl p-3 flex items-center justify-between gap-2">
+              <div className="flex-1 min-w-0">
                 <div className="font-bold text-c-text text-sm">{u.display_name}</div>
                 <div className="text-c-muted text-xs">@{u.username}</div>
-                {u.is_first_login && <div className="text-[#eab308] text-xs">ממתין לכניסה ראשונה</div>}
+                {u.is_first_login && <div className="text-[#eab308] text-xs">ממתין לאיפוס PIN</div>}
               </div>
-              <button
-                onClick={() => handleDelete(u.id, u.display_name)}
-                className="text-[#b91c1c] text-sm font-bold"
-              >
-                מחק
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setResetTarget({ id: u.id, name: u.display_name }); setResetPin(''); setResetError(''); }}
+                  className="text-[#9333ea] text-xs font-bold border border-[#9333ea]/40 rounded-lg px-2 py-1"
+                >
+                  איפוס PIN
+                </button>
+                <button
+                  onClick={() => handleDelete(u.id, u.display_name)}
+                  className="text-[#b91c1c] text-xs font-bold border border-[#b91c1c]/40 rounded-lg px-2 py-1"
+                >
+                  מחק
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -297,7 +359,7 @@ function AdminTeams({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={() => handleSave(team.id)}
                   disabled={saving === team.id || !editing[team.id]}
-                  className="bg-[#f97316] text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40"
+                  className="bg-[#9333ea] text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40"
                 >
                   {saving === team.id ? '...' : 'שמור'}
                 </button>
@@ -375,7 +437,7 @@ function AdminVenues({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={() => handleSave(v.id)}
                   disabled={saving === v.id || !editing[v.id]}
-                  className="bg-[#f97316] text-white text-sm font-bold px-3 py-2 rounded-lg disabled:opacity-40"
+                  className="bg-[#9333ea] text-white text-sm font-bold px-3 py-2 rounded-lg disabled:opacity-40"
                 >
                   {saving === v.id ? 'שומר...' : 'שמור'}
                 </button>
@@ -623,7 +685,7 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
           <button
             type="submit"
             disabled={addingFixture || !fixtureInput.trim()}
-            className="bg-[#f97316] text-white font-bold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
+            className="bg-[#9333ea] text-white font-bold px-4 py-2 rounded-xl text-sm disabled:opacity-50"
           >
             {addingFixture ? '...' : 'הוסף'}
           </button>
@@ -712,7 +774,7 @@ function AdminMatches({ onBack }: { onBack: () => void }) {
                 <button
                   onClick={() => handleSave(match.id)}
                   disabled={saving === match.id || !editing[match.id]}
-                  className="flex-1 bg-[#f97316] text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40"
+                  className="flex-1 bg-[#9333ea] text-white text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-40"
                 >
                   {saving === match.id ? '...' : 'שמור'}
                 </button>

@@ -30,11 +30,16 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const match = matchResult.rows[0];
 
-    // Get user's own prediction
-    const predResult = await query(
-      'SELECT * FROM predictions WHERE match_id = $1 AND user_id = $2',
-      [matchId, session.id]
-    );
+    // Get user's own prediction + scorer bonus for this match
+    const predResult = await query(`
+      SELECT p.*,
+        (SELECT COUNT(*)::int FROM match_events me
+          JOIN players pl ON pl.api_id = me.player_api_id
+          JOIN top_scorer_picks tsp ON tsp.player_id = pl.id AND tsp.user_id = $2
+          WHERE me.match_id = p.match_id AND me.event_type='goal' AND me.detail NOT ILIKE '%own%'
+        ) as scorer_bonus
+      FROM predictions p WHERE p.match_id = $1 AND p.user_id = $2
+    `, [matchId, session.id]);
 
     // Sagi's prediction (always visible)
     const sagiResult = await query(`
@@ -43,16 +48,32 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       WHERE p.match_id = $1 AND u.is_bot = true LIMIT 1
     `, [matchId]);
 
-    // If match started, get all predictions
+    // Regular match predictions reveal at kickoff. Final predictions stay private
+    // until the atomic tournament finalization transaction has completed.
     const matchStarted = new Date() >= new Date(match.match_date);
+    let predictionsRevealed = matchStarted;
+    if (match.stage === 'final') {
+      const endedResult = await query(
+        "SELECT value='true' AS finalized FROM settings WHERE key='tournament_ended' LIMIT 1"
+      );
+      predictionsRevealed = match.status === 'finished' && endedResult.rows[0]?.finalized === true;
+    }
     let allPredictions: unknown[] = [];
-    if (matchStarted) {
+    if (predictionsRevealed) {
       const allPredsResult = await query(`
-        SELECT p.*, u.display_name, u.username
+        SELECT p.*, u.display_name, u.username,
+          (SELECT COUNT(*)::int FROM match_events me
+            JOIN players pl ON pl.api_id = me.player_api_id
+            JOIN top_scorer_picks tsp ON tsp.player_id = pl.id AND tsp.user_id = p.user_id
+            WHERE me.match_id = p.match_id AND me.event_type='goal' AND me.detail NOT ILIKE '%own%'
+          ) as scorer_bonus
         FROM predictions p
         JOIN users u ON p.user_id = u.id
         WHERE p.match_id = $1
-        ORDER BY p.points DESC NULLS LAST, p.home_score ASC
+        ORDER BY (p.points + COALESCE((SELECT COUNT(*)::int FROM match_events me2
+          JOIN players pl2 ON pl2.api_id = me2.player_api_id
+          JOIN top_scorer_picks tsp2 ON tsp2.player_id = pl2.id AND tsp2.user_id = p.user_id
+          WHERE me2.match_id = p.match_id AND me2.event_type='goal' AND me2.detail NOT ILIKE '%own%'), 0)) DESC NULLS LAST
       `, [matchId]);
       allPredictions = allPredsResult.rows;
     }
@@ -72,6 +93,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       sagiPrediction: sagiResult.rows[0] || null,
       allPredictions,
       matchStarted,
+      predictionsRevealed,
       events: eventsResult.rows,
     });
   } catch (error) {

@@ -1,16 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getSession } from '@/lib/session';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'לא מחובר' }, { status: 401 });
-
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = 10;
-    const offset = (page - 1) * limit;
 
     const matchesResult = await query(`
       SELECT
@@ -20,6 +15,11 @@ export async function GET(req: NextRequest) {
         COALESCE(m.venue_name_api, v.name_he) as venue_name, COALESCE(m.venue_city_api, v.city_he) as venue_city, v.country_he as venue_country,
         ch.name_he as channel_name, ch.logo_url as channel_logo,
         p.home_score as pred_home, p.away_score as pred_away, p.is_double as pred_double, p.points as pred_points,
+        (SELECT COUNT(*)::int FROM match_events me
+          JOIN players pl ON pl.api_id = me.player_api_id
+          JOIN top_scorer_picks tsp ON tsp.player_id = pl.id AND tsp.user_id = $1
+          WHERE me.match_id = m.id AND me.event_type='goal' AND me.detail NOT ILIKE '%own%'
+        ) as scorer_bonus,
         sp.home_score as sagi_home, sp.away_score as sagi_away
       FROM matches m
       LEFT JOIN teams ht ON m.home_team_id = ht.id
@@ -30,17 +30,10 @@ export async function GET(req: NextRequest) {
       LEFT JOIN predictions sp ON sp.match_id = m.id
         AND sp.user_id = (SELECT id FROM users WHERE is_bot = true LIMIT 1)
       ORDER BY m.match_date ASC
-      LIMIT $2 OFFSET $3
-    `, [session.id, limit, offset]);
-
-    const countResult = await query('SELECT COUNT(*) FROM matches');
-    const total = parseInt(countResult.rows[0].count);
+    `, [session.id]);
 
     return NextResponse.json({
       matches: matchesResult.rows,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     console.error('Matches error:', error);

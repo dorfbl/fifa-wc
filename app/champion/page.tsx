@@ -79,7 +79,7 @@ export default function ChampionPage() {
       )}
 
       {current && (
-        <div className="bg-[var(--c-card-trans)] border border-[#f97316] rounded-xl p-3 mb-4 flex items-center gap-3">
+        <div className="bg-[var(--c-card-trans)] border border-[#9333ea] rounded-xl p-3 mb-4 flex items-center gap-3">
           <TeamFlag flagEmoji={current.flag_emoji} size="sm" />
           <div>
             <div className="text-xs text-c-muted">הבחירה הנוכחית שלך</div>
@@ -95,7 +95,7 @@ export default function ChampionPage() {
             placeholder="חפש קבוצה..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full bg-c-card border border-c-border rounded-xl px-4 py-3 text-c-text text-right placeholder:text-c-subtle focus:outline-none focus:border-[#f97316] mb-4"
+            className="w-full bg-c-card border border-c-border rounded-xl px-4 py-3 text-c-text text-right placeholder:text-c-subtle focus:outline-none focus:border-[#9333ea] mb-4"
           />
 
           <div className="flex flex-col gap-2 mb-6">
@@ -105,7 +105,7 @@ export default function ChampionPage() {
                 onClick={() => setSelected(team.id)}
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                   selected === team.id
-                    ? 'border-[#f97316] bg-[#f9731615]'
+                    ? 'border-[#9333ea] bg-[#9333ea15]'
                     : 'border-c-border bg-c-card'
                 }`}
               >
@@ -114,7 +114,7 @@ export default function ChampionPage() {
                 {team.group_letter && (
                   <span className="text-c-subtle text-xs">בית {team.group_letter.charCodeAt(0) - 64}</span>
                 )}
-                {selected === team.id && <span className="text-[#f97316]">✓</span>}
+                {selected === team.id && <span className="text-[#9333ea]">✓</span>}
               </button>
             ))}
           </div>

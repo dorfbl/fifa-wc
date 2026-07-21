@@ -42,7 +42,7 @@ function TopScorerAvatar({ photoUrl, name }: { photoUrl: string | null; name: st
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="bg-c-card rounded-2xl border border-c-border p-4 flex flex-col items-center">
-      <div className="text-[#f97316] font-bold text-2xl">{value}</div>
+      <div className="text-[#9333ea] font-bold text-2xl">{value}</div>
       <div className="text-c-text text-sm font-bold mt-1">{label}</div>
       {sub && <div className="text-c-subtle text-xs mt-0.5">{sub}</div>}
     </div>
@@ -73,7 +73,7 @@ export default function ProfilePage() {
   if (loading || !data) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+        <div className="text-[#9333ea] text-4xl animate-spin">⚽</div>
       </div>
     );
   }
@@ -106,7 +106,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Points big display */}
-      <div className="bg-[#f97316] rounded-2xl p-5 mb-4 text-center">
+      <div className="bg-[#9333ea] rounded-2xl p-5 mb-4 text-center">
         <div className="text-5xl font-bold text-white">{data.total_points}</div>
         <div className="text-white text-sm font-bold mt-1 opacity-80">{'סה"כ נקודות'}</div>
       </div>
@@ -126,17 +126,17 @@ export default function ProfilePage() {
           <div className="flex justify-between items-center">
             <span className="text-c-muted text-sm">שלב הבתים</span>
             {data.group_double_available ? (
-              <span className="text-[#eab308] font-bold text-sm">זמין ×2</span>
+              <span className="text-[#22c55e] font-bold text-sm">זמינה</span>
             ) : (
-              <span className="text-c-subtle text-sm">✓ שומש</span>
+              <span className="text-c-subtle text-sm">✓ שומשה</span>
             )}
           </div>
           <div className="flex justify-between items-center">
             <span className="text-c-muted text-sm">שלב הנוק-אאוט</span>
             {data.knockout_double_available ? (
-              <span className="text-[#eab308] font-bold text-sm">זמין ×2</span>
+              <span className="text-[#22c55e] font-bold text-sm">זמינה</span>
             ) : (
-              <span className="text-c-subtle text-sm">✓ שומש</span>
+              <span className="text-c-subtle text-sm">✓ שומשה</span>
             )}
           </div>
         </div>
@@ -150,7 +150,7 @@ export default function ProfilePage() {
             {!data.tournament_started && (
               <button
                 onClick={() => router.push('/champion')}
-                className="text-[#f97316] text-sm font-bold"
+                className="text-[#9333ea] text-sm font-bold"
               >
                 שנה ✏️
               </button>
@@ -181,7 +181,7 @@ export default function ProfilePage() {
             {!data.tournament_started && (
               <button
                 onClick={() => router.push('/top-scorer')}
-                className="text-[#f97316] text-sm font-bold"
+                className="text-[#9333ea] text-sm font-bold"
               >
                 שנה ✏️
               </button>
@@ -199,7 +199,7 @@ export default function ProfilePage() {
       ) : (
         <button
           onClick={() => router.push('/top-scorer')}
-          className="w-full bg-c-card border border-c-border rounded-xl py-3 text-c-text font-bold mb-4"
+          className="btn-orange mb-4"
         >
           בחר מלך שערים 👟
         </button>
@@ -212,7 +212,7 @@ export default function ProfilePage() {
           disabled={pushLoading}
           className={`w-full border rounded-xl py-3 font-bold mt-2 transition-colors ${
             pushSubscribed
-              ? 'bg-c-card border-[#f97316] text-[#f97316]'
+              ? 'bg-c-card border-[#9333ea] text-[#9333ea]'
               : 'bg-c-card border-c-border text-c-muted'
           }`}
         >

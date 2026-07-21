@@ -7,7 +7,7 @@ interface Props {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h2 className="text-[#f97316] font-bold text-base mb-3 border-b border-c-border pb-2">{title}</h2>
+      <h2 className="text-[#9333ea] font-bold text-base mb-3 border-b border-c-border pb-2">{title}</h2>
       <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
@@ -16,13 +16,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Rule({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex gap-2 text-sm text-c-text leading-relaxed">
-      <span className="text-[#f97316] mt-0.5 shrink-0">•</span>
+      <span className="text-[#9333ea] mt-0.5 shrink-0">•</span>
       <span>{children}</span>
     </div>
   );
 }
 
-function ScoreRow({ label, points, color = 'text-[#f97316]' }: { label: string; points: string; color?: string }) {
+function ScoreRow({ label, points, color = 'text-[#9333ea]' }: { label: string; points: string; color?: string }) {
   return (
     <div className="flex justify-between items-center bg-c-input rounded-xl px-4 py-3">
       <span className={`font-bold text-lg ${color}`}>{points}</span>
@@ -44,7 +44,7 @@ export default function TakanonModal({ onClose }: Props) {
       <div className="p-4 pb-32 max-w-lg mx-auto w-full">
 
         {/* Intro */}
-        <div className="bg-[#f97316] rounded-2xl p-4 mb-6 text-center">
+        <div className="bg-[#9333ea] rounded-2xl p-4 mb-6 text-center">
           <div className="text-3xl mb-1">⚽</div>
           <div className="text-white font-bold text-lg">מונדיאל חברים 2026</div>
           <div className="text-white/80 text-sm mt-1">משחק ניחושים פרטי לחברים</div>
@@ -53,7 +53,7 @@ export default function TakanonModal({ onClose }: Props) {
         {/* Scoring - Group */}
         <Section title="ניקוד — שלב הבתים">
           <ScoreRow label="תוצאה מדויקת" points="+3" color="text-[#22c55e]" />
-          <ScoreRow label="ניחוש מנצח נכון, תוצאה לא מדויקת" points="+1" color="text-[#f97316]" />
+          <ScoreRow label="ניחוש מנצח נכון, תוצאה לא מדויקת" points="+1" color="text-[#9333ea]" />
           <ScoreRow label="ניחוש שגוי" points="0" color="text-c-subtle" />
         </Section>
 
@@ -61,7 +61,7 @@ export default function TakanonModal({ onClose }: Props) {
         <Section title="ניקוד — שלב הנוקאאוט 🔥">
           <Rule>כל הנקודות בשלב הנוקאאוט <strong>מוכפלות אוטומטית ×2</strong></Rule>
           <ScoreRow label="תוצאה מדויקת" points="+6" color="text-[#22c55e]" />
-          <ScoreRow label="ניחוש מנצח נכון, תוצאה לא מדויקת" points="+2" color="text-[#f97316]" />
+          <ScoreRow label="ניחוש מנצח נכון, תוצאה לא מדויקת" points="+2" color="text-[#9333ea]" />
           <ScoreRow label="ניחוש שגוי" points="0" color="text-c-subtle" />
         </Section>
 
@@ -85,7 +85,7 @@ export default function TakanonModal({ onClose }: Props) {
 
         {/* Top Scorer */}
         <Section title="ניחוש מלך השערים 👟">
-          <ScoreRow label="+1 נקודה לכל שער שהשחקן הנבחר מבקיע" points="+1/שער" color="text-[#f97316]" />
+          <ScoreRow label="+1 נקודה לכל שער שהשחקן הנבחר מבקיע" points="+1/שער" color="text-[#9333ea]" />
           <ScoreRow label="ניחוש מלך השערים נכון (מוביל הטורניר)" points="+8" color="text-[#eab308]" />
           <Rule>יש לבחור שחקן <strong>לפני תחילת המשחק הראשון</strong> של הטורניר</Rule>
           <Rule>לאחר תחילת הטורניר לא ניתן לשנות את הבחירה</Rule>
@@ -112,15 +112,15 @@ export default function TakanonModal({ onClose }: Props) {
           <Rule>הדירוג נקבע לפי הסדר הבא:</Rule>
           <div className="bg-c-input rounded-xl px-4 py-3 flex flex-col gap-2">
             <div className="flex items-center gap-3">
-              <span className="text-[#f97316] font-bold w-5 text-center">1</span>
+              <span className="text-[#9333ea] font-bold w-5 text-center">1</span>
               <span className="text-c-text text-sm">סך כל הנקודות</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[#f97316] font-bold w-5 text-center">2</span>
+              <span className="text-[#9333ea] font-bold w-5 text-center">2</span>
               <span className="text-c-text text-sm">מספר תוצאות מדויקות (3 נקודות)</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[#f97316] font-bold w-5 text-center">3</span>
+              <span className="text-[#9333ea] font-bold w-5 text-center">3</span>
               <span className="text-c-text text-sm">מספר ניחושי מנצח נכונים (1 נקודה)</span>
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function TakanonModal({ onClose }: Props) {
               ['נעילה', '5 דק׳ לפני'],
             ].map(([label, val]) => (
               <div key={label} className="flex justify-between items-center bg-c-input rounded-lg px-3 py-2">
-                <span className="text-[#f97316] font-bold">{val}</span>
+                <span className="text-[#9333ea] font-bold">{val}</span>
                 <span className="text-c-muted">{label}</span>
               </div>
             ))}

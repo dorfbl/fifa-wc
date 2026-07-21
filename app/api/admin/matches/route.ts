@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, withTransaction } from '@/lib/db';
 import { requireAdmin } from '@/lib/adminAuth';
 import { calculatePoints } from '@/lib/scoring';
+import { finalizeTournament } from '@/lib/finalizeTournament';
 
 export async function GET() {
   const denied = await requireAdmin();
@@ -35,7 +36,7 @@ export async function PUT(req: NextRequest) {
   try {
     const { id, match_date, channel_id, home_score, away_score, status, venue_id } = await req.json();
 
-    await query(`
+    const updated = await query(`
       UPDATE matches SET
         match_date = COALESCE($1, match_date),
         channel_id = $2,
@@ -45,7 +46,12 @@ export async function PUT(req: NextRequest) {
         venue_id = $6,
         updated_at = NOW()
       WHERE id = $7
+      RETURNING stage, status
     `, [match_date, channel_id, home_score, away_score, status, venue_id, id]);
+
+    if (updated.rows[0]?.stage === 'final' && updated.rows[0]?.status !== 'finished') {
+      await query("UPDATE settings SET value='false' WHERE key='tournament_ended'");
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -62,46 +68,51 @@ export async function POST(req: NextRequest) {
   try {
     const { matchId } = await req.json();
 
-    const matchResult = await query('SELECT * FROM matches WHERE id = $1', [matchId]);
-    const match = matchResult.rows[0];
+    const updated = await withTransaction(async client => {
+      const matchResult = await client.query('SELECT * FROM matches WHERE id = $1 FOR UPDATE', [matchId]);
+      const match = matchResult.rows[0];
+      if (!match || match.home_score === null || match.away_score === null) {
+        throw new Error('RESULT_NOT_DEFINED');
+      }
 
-    if (!match || match.home_score === null || match.away_score === null) {
+      const predsResult = await client.query('SELECT * FROM predictions WHERE match_id = $1', [matchId]);
+      for (const pred of predsResult.rows) {
+        const points = calculatePoints(
+          pred.home_score,
+          pred.away_score,
+          match.home_score,
+          match.away_score,
+          pred.is_double,
+          match.stage,
+          match.score_90_home,
+          match.score_90_away
+        );
+        await client.query('UPDATE predictions SET points = $1 WHERE id = $2', [points, pred.id]);
+      }
+
+      if (match.stage === 'final' && match.status === 'finished') {
+        await finalizeTournament(client, match);
+      } else {
+        await client.query(`
+          UPDATE top_scorer_picks tsp
+          SET points = COALESCE((
+            SELECT COUNT(*)::int FROM match_events me
+            JOIN players pl ON pl.api_id = me.player_api_id
+            WHERE pl.id = tsp.player_id
+              AND me.event_type = 'goal'
+              AND me.detail NOT ILIKE '%own%'
+          ), 0)
+        `);
+      }
+      await client.query("UPDATE settings SET value='true' WHERE key='tournament_started'");
+      return predsResult.rows.length;
+    });
+
+    return NextResponse.json({ success: true, updated });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'RESULT_NOT_DEFINED') {
       return NextResponse.json({ error: 'תוצאה לא מוגדרת' }, { status: 400 });
     }
-
-    const predsResult = await query('SELECT * FROM predictions WHERE match_id = $1', [matchId]);
-
-    for (const pred of predsResult.rows) {
-      const points = calculatePoints(
-        pred.home_score,
-        pred.away_score,
-        match.home_score,
-        match.away_score,
-        pred.is_double,
-        match.stage
-      );
-      await query('UPDATE predictions SET points = $1 WHERE id = $2', [points, pred.id]);
-    }
-
-    // Recalculate tournament winner points
-    const tournamentEnded = match.stage === 'final' && match.status === 'finished';
-    if (tournamentEnded) {
-      const winnerTeamId = match.home_score > match.away_score
-        ? match.home_team_id
-        : match.away_team_id;
-
-      await query(`
-        UPDATE tournament_winners SET points = CASE WHEN team_id = $1 THEN 8 ELSE 0 END
-      `, [winnerTeamId]);
-
-      await query("UPDATE settings SET value = 'true' WHERE key = 'tournament_ended'");
-    }
-
-    // Mark tournament as started if it's the first match
-    await query("UPDATE settings SET value = 'true' WHERE key = 'tournament_started'");
-
-    return NextResponse.json({ success: true, updated: predsResult.rows.length });
-  } catch (error) {
     console.error(error);
     return NextResponse.json({ error: 'שגיאת שרת' }, { status: 500 });
   }

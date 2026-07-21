@@ -17,6 +17,8 @@ interface LeaderboardEntry {
   top_scorer_name?: string;
   top_scorer_photo?: string;
   top_scorer_team_flag?: string;
+  scorer_points: number;
+  double_bonus: number;
 }
 
 function ScorerAvatar({ photoUrl, name }: { photoUrl?: string; name?: string }) {
@@ -40,7 +42,7 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 export default function LeaderboardPage() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [hidden, setHidden] = useState(false);
-  const [tournamentEnded] = useState(false);
+  const [tournamentEnded, setTournamentEnded] = useState(false);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthStore();
 
@@ -50,6 +52,7 @@ export default function LeaderboardPage() {
       .then(data => {
         setLeaderboard(data.leaderboard || []);
         setHidden(data.hiddenDuringFinal || false);
+        setTournamentEnded(data.tournamentEnded || false);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -58,7 +61,7 @@ export default function LeaderboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+        <div className="text-[#9333ea] text-4xl animate-spin">⚽</div>
       </div>
     );
   }
@@ -124,7 +127,7 @@ export default function LeaderboardPage() {
                 <div
                   key={entry.user_id}
                   className={`bg-c-card rounded-2xl border p-4 ${
-                    isMe ? 'border-[#f97316]' : 'border-c-border'
+                    isMe ? 'border-[#9333ea]' : 'border-c-border'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -133,7 +136,7 @@ export default function LeaderboardPage() {
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`font-bold ${isMe ? 'text-[#f97316]' : 'text-c-text'}`}>
+                        <span className={`font-bold ${isMe ? 'text-[#9333ea]' : 'text-c-text'}`}>
                           {entry.display_name}
                           {isMe && <span className="text-xs mr-1">(אני)</span>}
                         </span>
@@ -151,10 +154,16 @@ export default function LeaderboardPage() {
                         <span>✓✓ {entry.exact_scores}</span>
                         <span>✓ {entry.correct_winners}</span>
                         <span>🎯 {entry.success_rate}%</span>
+                        {entry.double_bonus > 0 && (
+                          <span className="text-[#eab308] font-bold">×2 +{entry.double_bonus}</span>
+                        )}
+                        {entry.scorer_points > 0 && (
+                          <span className="text-[#f97316] font-bold">⚽{entry.scorer_points}</span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-[#f97316] font-bold text-xl">{entry.total_points}</div>
+                      <div className="text-[#9333ea] font-bold text-xl">{entry.total_points}</div>
                       <div className="text-c-subtle text-xs">נקודות</div>
                     </div>
                   </div>

@@ -89,7 +89,7 @@ export default function LoginPage() {
               placeholder="הזן שם משתמש"
               autoComplete="username"
               autoFocus
-              className="w-full bg-c-card border border-c-border rounded-xl px-4 py-4 text-c-text text-lg text-right placeholder:text-c-subtle focus:outline-none focus:border-[#f97316] transition-colors"
+              className="w-full bg-c-card border border-c-border rounded-xl px-4 py-4 text-c-text text-lg text-right placeholder:text-c-subtle focus:outline-none focus:border-[#9333ea] transition-colors"
             />
           </div>
           {error && <p className="text-[#b91c1c] text-sm font-bold text-center">{error}</p>}

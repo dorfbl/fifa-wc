@@ -7,6 +7,25 @@ export async function GET() {
     const session = await getSession();
     if (!session) return NextResponse.json({ error: 'לא מחובר' }, { status: 401 });
 
+    const finalState = await query(`
+      SELECT m.status, m.match_date,
+        COALESCE((SELECT value = 'true' FROM settings WHERE key='tournament_ended'), false) AS finalized
+      FROM matches m
+      WHERE m.stage='final'
+      ORDER BY m.match_date DESC
+      LIMIT 1
+    `);
+    const final = finalState.rows[0];
+    const finalStarted = !!final && (
+      final.status === 'live' || final.status === 'finished' || new Date() >= new Date(final.match_date)
+    );
+    const hiddenDuringFinal = finalStarted && !final.finalized;
+
+    // Enforce privacy at the API boundary: never send provisional standings.
+    if (hiddenDuringFinal) {
+      return NextResponse.json({ leaderboard: [], hiddenDuringFinal: true, tournamentEnded: false });
+    }
+
     const result = await query(`
       SELECT
         u.id as user_id,
@@ -21,7 +40,9 @@ export async function GET() {
         ct.flag_emoji as champion_flag,
         pl.name as top_scorer_name,
         pl.photo_url as top_scorer_photo,
-        pt.flag_emoji as top_scorer_team_flag
+        pt.flag_emoji as top_scorer_team_flag,
+        COALESCE(tsp.points, 0) as scorer_points,
+        COALESCE(SUM(CASE WHEN p.is_double AND p.points > 0 THEN p.points / 2 ELSE 0 END), 0) as double_bonus
       FROM users u
       LEFT JOIN predictions p ON p.user_id = u.id AND p.points IS NOT NULL
       LEFT JOIN tournament_winners tw ON tw.user_id = u.id
@@ -50,11 +71,6 @@ export async function GET() {
     const tournamentStarted = firstMatchResult.rows.length > 0
       && new Date() >= new Date(firstMatchResult.rows[0].match_date);
 
-    // Check if final match is live - hide leaderboard
-    const finalResult = await query(
-      "SELECT * FROM matches WHERE stage = 'final' AND status = 'live' LIMIT 1"
-    );
-
     // Hide special picks until tournament starts
     const leaderboard = rows.map(row => ({
       ...row,
@@ -67,7 +83,8 @@ export async function GET() {
 
     return NextResponse.json({
       leaderboard,
-      hiddenDuringFinal: finalResult.rows.length > 0,
+      hiddenDuringFinal: false,
+      tournamentEnded: !!final?.finalized,
     });
   } catch (error) {
     console.error('Leaderboard error:', error);

@@ -25,7 +25,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-dvh bg-c-bg">
-        <div className="text-[#f97316] text-4xl animate-spin">⚽</div>
+        <div className="text-[#9333ea] text-4xl animate-spin">⚽</div>
       </div>
     );
   }
@@ -33,7 +33,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="min-h-dvh bg-c-bg flex flex-col">
+    <div className="h-dvh bg-c-bg flex flex-col">
       <TournamentWinnerBanner />
       <main className="flex-1 overflow-y-auto pb-20">
         {children}

@@ -1,4 +1,4 @@
-// Polls sync-live every 80 seconds via HTTP
+// Polls sync-live every 20 seconds — only live matches are queried, so API quota is minimal
 const INTERVAL = 20_000;
 const URL = 'http://localhost:3011/api/cron/sync-live';
 const SECRET = 'mondial2026-cron-secret-key';

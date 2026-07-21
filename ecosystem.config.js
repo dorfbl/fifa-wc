@@ -20,6 +20,9 @@ module.exports = {
       cwd: '/home/dor/fifa',
       autorestart: true,
       watch: false,
+      env: {
+        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      },
     },
     {
       name: 'mondial-2026',
